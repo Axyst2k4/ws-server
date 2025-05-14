@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Giám sát Độ Ẩm - Nông Nghiệp Thông Minh</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: #e6f2e6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .center-box {
+      text-align: center;
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+      width: 300px;
+    }
+    h1 {
+      font-size: 1.8em;
+      color: #4caf50;
+      margin-bottom: 20px;
+    }
+    .humidity {
+      font-size: 3em;
+      color: #28a745;
+      margin: 20px 0;
+    }
+    .status {
+      font-size: 1.2em;
+      color: #555;
+    }
+    .status.connected {
+      color: green;
+    }
+    .status.disconnected {
+      color: red;
+    }
+    .status.error {
+      color: orange;
+    }
+  </style>
+</head>
+<body>
+  <div class="center-box">
+    <h1>🌱 Nông Nghiệp Thông Minh</h1>
+    <div class="humidity" id="humidity">Đang chờ dữ liệu...</div>
+    <div class="status" id="status">Chưa kết nối tới ESP32</div>
+  </div>
+
+  <script>
+    const humidityEl = document.getElementById('humidity');
+    const statusEl = document.getElementById('status');
+
+    // Kết nối WebSocket tới server.js
+    const socket = new WebSocket("ws://" + location.hostname + ":8080");
+
+    socket.onopen = () => {
+      statusEl.textContent = "Đã kết nối tới máy chủ WebSocket";
+      statusEl.classList.remove('disconnected', 'error');
+      statusEl.classList.add('connected');
+    };
+
+    socket.onmessage = (event) => {
+      // Giả sử ESP32 gửi dữ liệu dạng: Humidity_01 53
+      const raw = event.data;
+      const parts = raw.split(" ");
+      if (parts.length === 2 && parts[0].startsWith("Humidity_")) {
+        humidityEl.textContent = `Độ ẩm: ${parts[1]}%`;
+      } else {
+        humidityEl.textContent = `Độ ẩm đất: ${raw}`;
+      }
+    };
+
+    socket.onclose = () => {
+      statusEl.textContent = "Mất kết nối WebSocket";
+      statusEl.classList.remove('connected', 'error');
+      statusEl.classList.add('disconnected');
+    };
+
+    socket.onerror = (error) => {
+      statusEl.textContent = "Lỗi WebSocket";
+      statusEl.classList.remove('connected', 'disconnected');
+      statusEl.classList.add('error');
+      console.error("WebSocket error:", error);
+    };
+  </script>
+</body>
+</html>
