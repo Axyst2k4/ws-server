@@ -75,6 +75,9 @@ wss.on('connection', socket => {
 });
 
 // Mở server trên tất cả địa chỉ mạng (LAN + ngrok)
-server.listen(8080, '0.0.0.0', () => {
-  console.log("Server đang chạy tại: http://localhost:8080/");
+const PORT = process.env.PORT || 8080;
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Server đang chạy tại: http://localhost:${PORT}/`);
 });
+
