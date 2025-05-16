@@ -5,21 +5,21 @@
     <title>Điều khiển Tưới Tự Động - Nông Nghiệp Thông Minh</title>
     <style>
         body {
-  margin: 0;
-  font-family: 'Segoe UI', sans-serif;
-  background: url('background.jpg') no-repeat center center fixed;
-  background-size: cover;
-  display: flex;
-  align-items: center; /* Căn giữa theo chiều dọc */
-  justify-content: center; /* Căn giữa theo chiều ngang */
-  min-height: 100vh;
-  padding: 20px;
-  box-sizing: border-box;
-}
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: url('background.jpg') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
         .container {
-            background: rgba(255, 255, 255, 0.7); /* Nền trắng mờ nhẹ */
-  backdrop-filter: blur(10px); /* Làm mờ nền phía sau */
-  -webkit-backdrop-filter: blur(30px); /* Cho Safari */
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(30px);
             border-radius: 12px;
             box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
             width: 90%;
@@ -201,77 +201,8 @@
         const manualOverrideCheckbox = document.getElementById('manual-override');
         const manualOverrideLabel = document.getElementById('manual-override-label');
 
-        const socket = new WebSocket("wss://" + location.host);
+        const socket = new WebSocket("ws://" + location.host + ":8080");
 
         socket.onopen = () => {
             connectionStatusEl.textContent = "Đã kết nối tới máy chủ WebSocket";
-            connectionStatusEl.style.backgroundColor = "#c8e6c9";
-            connectionStatusEl.style.color = "#1b5e20";
-        };
-
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-
-            if (data.humidity !== undefined) {
-                humidityEl.textContent = `${data.humidity}%`;
-            }
-
-            if (data.watering !== undefined) {
-                wateringStatusEl.textContent = data.watering ? "Đang tưới" : "Đã dừng";
-                wateringStatusEl.style.color = data.watering ? "green" : "red";
-            }
-
-            if (data.setpoint !== undefined) {
-                humiditySetpointInput.value = data.setpoint;
-            }
-
-            if (data.manual_override !== undefined) {
-                manualOverrideCheckbox.checked = data.manual_override;
-                manualOverrideLabel.textContent = data.manual_override ? "Bật" : "Tắt";
-            }
-        };
-
-        socket.onclose = () => {
-            connectionStatusEl.textContent = "Mất kết nối WebSocket";
-            connectionStatusEl.style.backgroundColor = "#ffcdd2";
-            connectionStatusEl.style.color = "#b71c1c";
-        };
-
-        socket.onerror = (error) => {
-            connectionStatusEl.textContent = "Lỗi WebSocket";
-            connectionStatusEl.style.backgroundColor = "#ffe0b2";
-            connectionStatusEl.style.color = "#ff6f00";
-            console.error("WebSocket error:", error);
-        };
-
-        setpointForm.addEventListener('submit', (event) => {
-            event.preventDefault();
-            const setpointValue = humiditySetpointInput.value;
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'set_setpoint', value: setpointValue }));
-                alert(`Đã gửi ngưỡng độ ẩm: ${setpointValue}%`);
-            } else {
-                alert("Chưa kết nối tới máy chủ.");
-            }
-        });
-
-        manualOverrideCheckbox.addEventListener('change', () => {
-            const manualOverrideValue = manualOverrideCheckbox.checked;
-            manualOverrideLabel.textContent = manualOverrideValue ? "Bật" : "Tắt";
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ type: 'manual_override', value: manualOverrideValue }));
-            } else {
-                alert("Chưa kết nối tới máy chủ.");
-            }
-        });
-
-        // Gửi yêu cầu lấy thông tin ban đầu khi kết nối
-        socket.onopen = () => {
-            connectionStatusEl.textContent = "Đã kết nối tới máy chủ WebSocket";
-            connectionStatusEl.style.backgroundColor = "#c8e6c9";
-            connectionStatusEl.style.color = "#1b5e20";
-            socket.send(JSON.stringify({ type: 'get_initial_data' }));
-        };
-    </script>
-</body>
-</html>
+            connectionStatusEl.style.backgroundColor = "#c
