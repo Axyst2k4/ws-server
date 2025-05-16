@@ -1,4 +1,3 @@
-@@ -0,0 +1,94 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -51,14 +50,13 @@
   <div class="center-box">
     <h1>🌱 Nông Nghiệp Thông Minh</h1>
     <div class="humidity" id="humidity">Đang chờ dữ liệu...</div>
-    <div class="status" id="status">Chưa kết nối tới ESP32</div>
+    <div class="status" id="status">Chưa kết nối tới máy chủ</div>
   </div>
 
   <script>
     const humidityEl = document.getElementById('humidity');
     const statusEl = document.getElementById('status');
 
-    // Kết nối WebSocket tới server.js
     const socket = new WebSocket("ws://" + location.hostname + ":8080");
 
     socket.onopen = () => {
@@ -68,13 +66,18 @@
     };
 
     socket.onmessage = (event) => {
-      // Giả sử ESP32 gửi dữ liệu dạng: Humidity_01 53
-      const raw = event.data;
+      const raw = event.data.trim();
       const parts = raw.split(" ");
-      if (parts.length === 2 && parts[0].startsWith("Humidity_")) {
-        humidityEl.textContent = `Độ ẩm: ${parts[1]}%`;
+
+      if (parts.length === 2 && parts[0] === "Humidity_01") {
+        const humidity = parseInt(parts[1]);
+        if (!isNaN(humidity)) {
+          humidityEl.textContent = `Độ ẩm: ${humidity}%`;
+        } else {
+          humidityEl.textContent = `Dữ liệu lỗi: ${raw}`;
+        }
       } else {
-        humidityEl.textContent = `Độ ẩm đất: ${raw}`;
+        humidityEl.textContent = `Dữ liệu nhận: ${raw}`;
       }
     };
 
