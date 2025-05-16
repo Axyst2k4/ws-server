@@ -5,7 +5,7 @@ const path = require('path');
 
 let Humidity_01 = 0;
 
-// Tạo HTTP server để phục vụ file index.html
+// Tạo HTTP server phục vụ index.html
 const server = http.createServer((req, res) => {
   if (req.url === '/' || req.url === '/index.html') {
     const filePath = path.join(__dirname, 'index.html');
@@ -23,14 +23,14 @@ const server = http.createServer((req, res) => {
   }
 });
 
-// Gắn WebSocket vào HTTP server
+// Tạo WebSocket server
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', socket => {
   console.log("Web client đã kết nối!");
 
-  // Gửi giá trị hiện tại ngay khi kết nối
-  socket.send(Humidity_01.toString());
+  // Gửi dữ liệu hiện tại
+  socket.send(`Humidity_01 ${Humidity_01}`);
 
   socket.on('message', message => {
     const rawData = message.toString().trim();
@@ -39,15 +39,20 @@ wss.on('connection', socket => {
     if (rawData.startsWith("Humidity_01")) {
       const parts = rawData.split(" ");
       if (parts.length === 2) {
-        Humidity_01 = parseInt(parts[1]);
-        console.log(`[${timestamp}] Humidity_01: ${Humidity_01}`);
+        const value = parseInt(parts[1]);
+        if (!isNaN(value)) {
+          Humidity_01 = value;
+          console.log(`[${timestamp}] Humidity_01: ${Humidity_01}`);
 
-        // Gửi giá trị mới cho tất cả client
-        wss.clients.forEach(client => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(Humidity_01.toString());
-          }
-        });
+          // Gửi dữ liệu mới cho tất cả client
+          wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+              client.send(`Humidity_01 ${Humidity_01}`);
+            }
+          });
+        } else {
+          console.log(`[${timestamp}] Giá trị độ ẩm không hợp lệ: ${parts[1]}`);
+        }
       } else {
         console.log(`[${timestamp}] Dữ liệu không hợp lệ: ${rawData}`);
       }
@@ -61,6 +66,7 @@ wss.on('connection', socket => {
   });
 });
 
+// Khởi động server
 server.listen(8080, '0.0.0.0', () => {
   console.log("Server đang chạy tại: http://192.168.0.101:8080/");
 });
