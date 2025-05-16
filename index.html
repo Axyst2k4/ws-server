@@ -1,95 +1,277 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <title>Giám sát Độ Ẩm - Nông Nghiệp Thông Minh</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: #e6f2e6;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
-    .center-box {
-      text-align: center;
-      background: white;
-      padding: 40px;
-      border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-      width: 300px;
-    }
-    h1 {
-      font-size: 1.8em;
-      color: #4caf50;
-      margin-bottom: 20px;
-    }
-    .humidity {
-      font-size: 3em;
-      color: #28a745;
-      margin: 20px 0;
-    }
-    .status {
-      font-size: 1.2em;
-      color: #555;
-    }
-    .status.connected {
-      color: green;
-    }
-    .status.disconnected {
-      color: red;
-    }
-    .status.error {
-      color: orange;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Điều khiển Tưới Tự Động - Nông Nghiệp Thông Minh</title>
+    <style>
+        body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background: url('background.jpg') no-repeat center center fixed;
+  background-size: cover;
+  display: flex;
+  align-items: center; /* Căn giữa theo chiều dọc */
+  justify-content: center; /* Căn giữa theo chiều ngang */
+  min-height: 100vh;
+  padding: 20px;
+  box-sizing: border-box;
+}
+        .container {
+            background: rgba(255, 255, 255, 0.7); /* Nền trắng mờ nhẹ */
+  backdrop-filter: blur(10px); /* Làm mờ nền phía sau */
+  -webkit-backdrop-filter: blur(30px); /* Cho Safari */
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 600px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            font-size: 2em;
+            color: #4caf50;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .status-box {
+            background: #e0f2f7;
+            color: #03a9f4;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .data-section {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .data-item {
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+        .humidity {
+            font-size: 2.5em;
+            color: #28a745;
+            margin-top: 10px;
+        }
+        .status {
+            font-size: 1.1em;
+            color: #555;
+        }
+        .status.connected {
+            color: green;
+        }
+        .status.disconnected {
+            color: red;
+        }
+        .status.error {
+            color: orange;
+        }
+        .controls-section {
+            margin-top: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+        }
+        h2 {
+            font-size: 1.5em;
+            color: #007bff;
+            margin-bottom: 15px;
+        }
+        .setpoint-form label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        .setpoint-form input[type="number"] {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 80%;
+            margin-bottom: 15px;
+        }
+        .setpoint-form button {
+            padding: 12px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        .setpoint-form button:hover {
+            background-color: #0056b3;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #4caf50;
+        }
+        input:focus + .slider {
+            box-shadow: 0 0 1px #4caf50;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        .watering-control {
+            margin-top: 20px;
+        }
+        .watering-control label {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
 </head>
 <body>
-  <div class="center-box">
-    <h1>🌱 Nông Nghiệp Thông Minh</h1>
-    <div class="humidity" id="humidity">Đang chờ dữ liệu...</div>
-    <div class="status" id="status">Chưa kết nối tới ESP32</div>
-  </div>
+    <div class="container">
+        <h1>🌱 Hệ Thống Tưới Tự Động Thông Minh</h1>
+        <div class="status-box" id="connection-status">Đang kết nối...</div>
 
-  <script>
-    const humidityEl = document.getElementById('humidity');
-    const statusEl = document.getElementById('status');
+        <div class="data-section">
+            <div class="data-item">
+                <h2>🌡️ Độ Ẩm Đất</h2>
+                <div class="humidity" id="humidity">Đang chờ dữ liệu...</div>
+            </div>
+            <div class="data-item">
+                <h2>💧 Trạng Thái Tưới</h2>
+                <div class="status" id="watering-status">Chưa xác định</div>
+            </div>
+        </div>
 
-    // Kết nối WebSocket tới server.js
-    const socket = new WebSocket("wss://" + location.host);
+        <div class="controls-section">
+            <h2>⚙️ Cài Đặt Ngưỡng Tưới</h2>
+            <form class="setpoint-form" id="setpoint-form">
+                <label for="humidity-setpoint">Ngưỡng độ ẩm kích hoạt tưới (%):</label>
+                <input type="number" id="humidity-setpoint" name="humidity-setpoint" min="0" max="100" required>
+                <button type="submit">Lưu Ngưỡng</button>
+            </form>
 
+            <div class="watering-control">
+                <h2>🕹️ Điều Khiển Tưới Thủ Công</h2>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="manual-override">
+                    <span class="slider round"></span>
+                </label>
+                <span id="manual-override-label">Tắt</span>
+            </div>
+        </div>
+    </div>
 
-    socket.onopen = () => {
-      statusEl.textContent = "Đã kết nối tới máy chủ WebSocket";
-      statusEl.classList.remove('disconnected', 'error');
-      statusEl.classList.add('connected');
-    };
+    <script>
+        const connectionStatusEl = document.getElementById('connection-status');
+        const humidityEl = document.getElementById('humidity');
+        const wateringStatusEl = document.getElementById('watering-status');
+        const setpointForm = document.getElementById('setpoint-form');
+        const humiditySetpointInput = document.getElementById('humidity-setpoint');
+        const manualOverrideCheckbox = document.getElementById('manual-override');
+        const manualOverrideLabel = document.getElementById('manual-override-label');
 
-    socket.onmessage = (event) => {
-      // Giả sử ESP32 gửi dữ liệu dạng: Humidity_01 53
-      const raw = event.data;
-      const parts = raw.split(" ");
-      if (parts.length === 2 && parts[0].startsWith("Humidity_")) {
-        humidityEl.textContent = `Độ ẩm: ${parts[1]}%`;
-      } else {
-        humidityEl.textContent = `Độ ẩm đất: ${raw}`;
-      }
-    };
+        const socket = new WebSocket("wss://" + location.host);
 
-    socket.onclose = () => {
-      statusEl.textContent = "Mất kết nối WebSocket";
-      statusEl.classList.remove('connected', 'error');
-      statusEl.classList.add('disconnected');
-    };
+        socket.onopen = () => {
+            connectionStatusEl.textContent = "Đã kết nối tới máy chủ WebSocket";
+            connectionStatusEl.style.backgroundColor = "#c8e6c9";
+            connectionStatusEl.style.color = "#1b5e20";
+        };
 
-    socket.onerror = (error) => {
-      statusEl.textContent = "Lỗi WebSocket";
-      statusEl.classList.remove('connected', 'disconnected');
-      statusEl.classList.add('error');
-      console.error("WebSocket error:", error);
-    };
-  </script>
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.humidity !== undefined) {
+                humidityEl.textContent = `${data.humidity}%`;
+            }
+
+            if (data.watering !== undefined) {
+                wateringStatusEl.textContent = data.watering ? "Đang tưới" : "Đã dừng";
+                wateringStatusEl.style.color = data.watering ? "green" : "red";
+            }
+
+            if (data.setpoint !== undefined) {
+                humiditySetpointInput.value = data.setpoint;
+            }
+
+            if (data.manual_override !== undefined) {
+                manualOverrideCheckbox.checked = data.manual_override;
+                manualOverrideLabel.textContent = data.manual_override ? "Bật" : "Tắt";
+            }
+        };
+
+        socket.onclose = () => {
+            connectionStatusEl.textContent = "Mất kết nối WebSocket";
+            connectionStatusEl.style.backgroundColor = "#ffcdd2";
+            connectionStatusEl.style.color = "#b71c1c";
+        };
+
+        socket.onerror = (error) => {
+            connectionStatusEl.textContent = "Lỗi WebSocket";
+            connectionStatusEl.style.backgroundColor = "#ffe0b2";
+            connectionStatusEl.style.color = "#ff6f00";
+            console.error("WebSocket error:", error);
+        };
+
+        setpointForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const setpointValue = humiditySetpointInput.value;
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'set_setpoint', value: setpointValue }));
+                alert(`Đã gửi ngưỡng độ ẩm: ${setpointValue}%`);
+            } else {
+                alert("Chưa kết nối tới máy chủ.");
+            }
+        });
+
+        manualOverrideCheckbox.addEventListener('change', () => {
+            const manualOverrideValue = manualOverrideCheckbox.checked;
+            manualOverrideLabel.textContent = manualOverrideValue ? "Bật" : "Tắt";
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: 'manual_override', value: manualOverrideValue }));
+            } else {
+                alert("Chưa kết nối tới máy chủ.");
+            }
+        });
+
+        // Gửi yêu cầu lấy thông tin ban đầu khi kết nối
+        socket.onopen = () => {
+            connectionStatusEl.textContent = "Đã kết nối tới máy chủ WebSocket";
+            connectionStatusEl.style.backgroundColor = "#c8e6c9";
+            connectionStatusEl.style.color = "#1b5e20";
+            socket.send(JSON.stringify({ type: 'get_initial_data' }));
+        };
+    </script>
 </body>
 </html>
