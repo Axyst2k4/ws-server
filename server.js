@@ -66,7 +66,10 @@ wss.on('connection', socket => {
   });
 });
 
+// Lấy cổng từ biến môi trường của Render, nếu không có thì mặc định là 8080 (để chạy local)
+const PORT = process.env.PORT || 8080;
+
 // Khởi động server
-server.listen(8080, '0.0.0.0', () => {
-  console.log("Server đang chạy tại: http://192.168.0.101:8080/");
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running on port ${PORT}`);
 });
