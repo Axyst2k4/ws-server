@@ -57,7 +57,7 @@
     const humidityEl = document.getElementById('humidity');
     const statusEl = document.getElementById('status');
 
-    cconst socket = new WebSocket("wss://" + location.host);
+    const socket = new WebSocket("wss://" + location.host);
 
     socket.onopen = () => {
       statusEl.textContent = "Đã kết nối tới máy chủ WebSocket";
