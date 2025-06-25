@@ -3,10 +3,12 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 
-// Khởi tạo các biến để lưu trữ giá trị
+// Khởi tạo các biến để lưu trữ giá trị từ client
 let Mode = null;
 let Set_time = null;
 let Delay = null;
+let Humidity = null;
+let Set_point = null;
 
 // Tạo HTTP server phục vụ file HTML
 const server = http.createServer((req, res) => {
@@ -29,55 +31,79 @@ const server = http.createServer((req, res) => {
 // Tạo WebSocket server
 const wss = new WebSocket.Server({ server });
 
+// Hàm gửi dữ liệu đến tất cả client đang kết nối
+function broadcast(message) {
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
+
 wss.on('connection', socket => {
   console.log("Web client đã kết nối!");
 
-  // Gửi dữ liệu hiện tại đến client khi kết nối
-  socket.send(`Mode ${Mode}`);
-  socket.send(`Set_time ${Set_time}`);
-  socket.send(`Delay ${Delay}`);
+  // Gửi tất cả dữ liệu hiện tại đến client mới khi kết nối
+  if (Mode !== null) socket.send(`Mode ${Mode}`);
+  if (Set_time !== null) socket.send(`Set_time ${Set_time}`);
+  if (Delay !== null) socket.send(`Delay ${Delay}`);
+  if (Humidity !== null) socket.send(`Humidity ${Humidity}`);
+  if (Set_point !== null) socket.send(`Set_point ${Set_point}`);
 
   socket.on('message', message => {
     const rawData = message.toString().trim();
-    const timestamp = new Date().toLocaleString();
+    const timestamp = new Date().toLocaleString('vi-VN'); // Định dạng thời gian Việt Nam
 
-    // Kiểm tra định dạng thông điệp
-    const prefix = 'Dữ liệu không xác định: ';
-    if (rawData.includes(prefix)) {
-      const dataPart = rawData.split(prefix)[1].trim(); // Lấy phần sau prefix
-      const [key, value] = dataPart.split(' '); // Tách key và value
+    // Tách key và value từ message, ví dụ: "Mode 8" -> key="Mode", value="8"
+    const parts = rawData.split(' ');
+    const key = parts[0];
+    const value = parts.slice(1).join(' '); // Nối lại phần còn lại của giá trị
 
-      if (key && value) {
-        const parsedValue = parseInt(value); // Chuyển value thành số
-        if (!isNaN(parsedValue)) {
-          // Cập nhật giá trị dựa trên key
-          if (key === 'Mode') {
+    if (key && value) {
+      const parsedValue = parseFloat(value); // Dùng parseFloat để linh hoạt hơn
+      if (!isNaN(parsedValue)) {
+        let updated = false;
+        let logMessage = '';
+
+        // Cập nhật giá trị dựa trên key
+        switch (key) {
+          case 'Mode':
             Mode = parsedValue;
-            console.log(`[${timestamp}] Mode: ${Mode}`);
-          } else if (key === 'Set_time') {
+            logMessage = `[${timestamp}] Cập nhật Mode: ${Mode}`;
+            updated = true;
+            break;
+          case 'Set_time':
             Set_time = parsedValue;
-            console.log(`[${timestamp}] Set_time: ${Set_time}`);
-          } else if (key === 'Delay') {
+            logMessage = `[${timestamp}] Cập nhật Set_time: ${Set_time}`;
+            updated = true;
+            break;
+          case 'Delay':
             Delay = parsedValue;
-            console.log(`[${timestamp}] Delay: ${Delay}`);
-          } else {
+            logMessage = `[${timestamp}] Cập nhật Delay: ${Delay}`;
+            updated = true;
+            break;
+          case 'Humidity':
+            Humidity = parsedValue;
+            logMessage = `[${timestamp}] Cập nhật Humidity: ${Humidity}`;
+            updated = true;
+            break;
+          case 'Set_point':
+            Set_point = parsedValue;
+            logMessage = `[${timestamp}] Cập nhật Set_point: ${Set_point}`;
+            updated = true;
+            break;
+          default:
             console.log(`[${timestamp}] Key không hợp lệ: ${key}`);
-            return;
-          }
+            break;
+        }
 
-          // Gửi dữ liệu mới cho tất cả client
-          wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-              if (key === 'Mode') client.send(`Mode ${Mode}`);
-              if (key === 'Set_time') client.send(`Set_time ${Set_time}`);
-              if (key === 'Delay') client.send(`Delay ${Delay}`);
-            }
-          });
-        } else {
-          console.log(`[${timestamp}] Giá trị không hợp lệ cho key ${key}: ${value}`);
+        // Nếu có cập nhật, ghi log và gửi cho tất cả client
+        if (updated) {
+          console.log(logMessage);
+          broadcast(`${key} ${value}`); // Gửi lại đúng định dạng đã nhận
         }
       } else {
-        console.log(`[${timestamp}] Dữ liệu không hợp lệ: ${dataPart}`);
+        console.log(`[${timestamp}] Giá trị không phải là số cho key ${key}: ${value}`);
       }
     } else {
       console.log(`[${timestamp}] Thông điệp không đúng định dạng: ${rawData}`);
@@ -92,5 +118,5 @@ wss.on('connection', socket => {
 // Khởi động server
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server đang chạy trên cổng ${PORT}`);
 });
