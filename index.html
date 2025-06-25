@@ -26,10 +26,10 @@
       color: #4caf50;
       margin-bottom: 20px;
     }
-    .humidity {
-      font-size: 3em;
+    .data {
+      font-size: 1.5em;
       color: #28a745;
-      margin: 20px 0;
+      margin: 10px 0;
     }
     .status {
       font-size: 1.2em;
@@ -44,16 +44,33 @@
     .status.error {
       color: orange;
     }
+    .hidden {
+      display: none;
+    }
   </style>
 </head>
 <body>
   <div class="center-box">
     <h1>🌱 Nông Nghiệp Thông Minh</h1>
-    <div class="humidity" id="humidity">Đang chờ dữ liệu...</div>
+    <div class="data" id="mode">Mode: Đang chờ dữ liệu...</div>
+    <div id="mode0" class="hidden">
+      <div class="data" id="setpoint">Setpoint: Đang chờ dữ liệu...</div>
+      <div class="data" id="humidity">Humidity: Đang chờ dữ liệu...</div>
+    </div>
+    <div id="mode1" class="hidden">
+      <div class="data" id="set_time">Set time: Đang chờ dữ liệu...</div>
+      <div class="data" id="delay">Delay: Đang chờ dữ liệu...</div>
+    </div>
     <div class="status" id="status">Chưa kết nối tới máy chủ</div>
   </div>
 
   <script>
+    const modeEl = document.getElementById('mode');
+    const mode0El = document.getElementById('mode0');
+    const mode1El = document.getElementById('mode1');
+    const setTimeEl = document.getElementById('set_time');
+    const delayEl = document.getElementById('delay');
+    const setpointEl = document.getElementById('setpoint');
     const humidityEl = document.getElementById('humidity');
     const statusEl = document.getElementById('status');
 
@@ -69,15 +86,35 @@
       const raw = event.data.trim();
       const parts = raw.split(" ");
 
-      if (parts.length === 2 && parts[0] === "Humidity_01") {
-        const humidity = parseInt(parts[1]);
-        if (!isNaN(humidity)) {
-          humidityEl.textContent = `Độ ẩm: ${humidity}%`;
+      if (parts.length === 2) {
+        const key = parts[0];
+        const value = parseInt(parts[1]);
+
+        if (!isNaN(value)) {
+          if (key === "Mode") {
+            const modeText = (value % 2 === 0) ? "Mode 0" : "Mode 1";
+            modeEl.textContent = modeText;
+            if (value % 2 === 0) {
+              mode0El.classList.remove('hidden');
+              mode1El.classList.add('hidden');
+            } else {
+              mode0El.classList.add('hidden');
+              mode1El.classList.remove('hidden');
+            }
+          } else if (key === "Set_time") {
+            setTimeEl.textContent = `Set time: ${value} min`;
+          } else if (key === "Delay") {
+            delayEl.textContent = `Delay: ${value} H`;
+          } else if (key === "Set_point") {
+            setpointEl.textContent = `Setpoint: ${value}%`;
+          } else if (key === "Humidity_01") {
+            humidityEl.textContent = `Humidity: ${value}%`;
+          }
         } else {
-          humidityEl.textContent = `Dữ liệu lỗi: ${raw}`;
+          console.error(`Giá trị không hợp lệ cho ${key}: ${parts[1]}`);
         }
       } else {
-        humidityEl.textContent = `Dữ liệu nhận: ${raw}`;
+        console.error(`Dữ liệu nhận không hợp lệ: ${raw}`);
       }
     };
 
