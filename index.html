@@ -27,12 +27,17 @@
       padding: 40px;
       border-radius: 12px;
       box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-      width: 300px;
+      width: 350px; /* Tăng chiều rộng một chút */
     }
     .data {
       font-size: 1.5em;
       color: #28a745;
       margin: 10px 0;
+    }
+    /* Thêm style riêng cho countdown */
+    #countdown {
+        color: #ff5722; /* Màu cam để nổi bật */
+        font-weight: bold;
     }
     .status {
       font-size: 1.2em;
@@ -63,6 +68,7 @@
     <div id="mode1" class="hidden">
       <div class="data" id="set_time">Set time: Đang chờ dữ liệu...</div>
       <div class="data" id="delay">Delay: Đang chờ dữ liệu...</div>
+      <div class="data" id="countdown">Thời gian còn lại: 00:00:00</div>
     </div>
     <div class="status" id="status">Chưa kết nối tới máy chủ</div>
   </div>
@@ -76,6 +82,8 @@
     const setpointEl = document.getElementById('setpoint');
     const humidityEl = document.getElementById('humidity');
     const statusEl = document.getElementById('status');
+    // LẤY PHẦN TỬ COUNTDOWN
+    const countdownEl = document.getElementById('countdown');
 
     const socket = new WebSocket("wss://" + location.host);
 
@@ -88,36 +96,43 @@
     socket.onmessage = (event) => {
       const raw = event.data.trim();
       const parts = raw.split(" ");
+      const key = parts[0];
+      const value = parts.slice(1).join(" "); // Lấy toàn bộ phần còn lại làm value
 
-      if (parts.length === 2) {
-        const key = parts[0];
-        const value = parseInt(parts[1]);
-
-        if (!isNaN(value)) {
-          if (key === "Mode") {
-            const modeText = (value % 2 === 0) ? "Mode 0" : "Mode 1";
+      switch (key) {
+        case "Mode":
+          const modeValue = parseInt(value);
+          if (!isNaN(modeValue)) {
+            const modeText = (modeValue % 2 === 0) ? "Mode 0" : "Mode 1";
             modeEl.textContent = modeText;
-            if (value % 2 === 0) {
+            if (modeValue % 2 === 0) {
               mode0El.classList.remove('hidden');
               mode1El.classList.add('hidden');
             } else {
               mode0El.classList.add('hidden');
               mode1El.classList.remove('hidden');
             }
-          } else if (key === "Set_time") {
-            setTimeEl.textContent = `Set time: ${value} min`;
-          } else if (key === "Delay") {
-            delayEl.textContent = `Delay: ${value} H`;
-          } else if (key === "Set_point") {
-            setpointEl.textContent = `Setpoint: ${value}%`;
-          } else if (key === "Humidity_01") {
-            humidityEl.textContent = `Humidity: ${value}%`;
           }
-        } else {
-          console.error(`Giá trị không hợp lệ cho ${key}: ${parts[1]}`);
-        }
-      } else {
-        console.error(`Dữ liệu nhận không hợp lệ: ${raw}`);
+          break;
+        case "Set_time":
+          setTimeEl.textContent = `Set time: ${value} min`;
+          break;
+        case "Delay":
+          // Hiển thị thời gian Delay bằng giây để nhất quán
+          delayEl.textContent = `Delay: ${value} s`;
+          break;
+        case "Set_point":
+          setpointEl.textContent = `Setpoint: ${value}%`;
+          break;
+        case "Humidity": // SỬA LẠI KEY TỪ "Humidity_01" THÀNH "Humidity"
+          humidityEl.textContent = `Humidity: ${value}%`;
+          break;
+        case "Countdown": // XỬ LÝ DỮ LIỆU ĐẾM NGƯỢC
+          countdownEl.textContent = `Thời gian còn lại: ${value}`;
+          break;
+        default:
+          console.error(`Dữ liệu nhận không hợp lệ: ${raw}`);
+          break;
       }
     };
 
