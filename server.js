@@ -6,9 +6,13 @@ const path = require('path');
 // Khởi tạo các biến để lưu trữ giá trị từ client
 let Mode = null;
 let Set_time = null;
-let Delay = null;
+let Delay = null; // Thời gian delay ban đầu tính bằng giây
 let Humidity = null;
 let Set_point = null;
+
+// Biến cho bộ đếm ngược
+let countdownInterval = null; // Sẽ giữ ID của setInterval
+let remainingTime = 0; // Thời gian còn lại tính bằng giây
 
 // Tạo HTTP server phục vụ file HTML
 const server = http.createServer((req, res) => {
@@ -40,6 +44,39 @@ function broadcast(message) {
   });
 }
 
+// Hàm định dạng thời gian từ giây thành chuỗi HH:MM:SS
+function formatTime(seconds) {
+  const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+  const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+  const s = (seconds % 60).toString().padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+// Hàm bắt đầu bộ đếm ngược
+function startCountdown() {
+  // Dừng bộ đếm ngược cũ nếu đang chạy
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+  }
+
+  remainingTime = Delay; // Lấy thời gian từ biến Delay
+
+  countdownInterval = setInterval(() => {
+    if (remainingTime > 0) {
+      remainingTime--;
+      // Gửi thời gian còn lại đến tất cả client
+      broadcast(`Countdown ${formatTime(remainingTime)}`);
+    } else {
+      // Dừng bộ đếm ngược khi hết giờ
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      broadcast('Countdown 00:00:00'); // Thông báo hết giờ
+      console.log('Đã đếm ngược xong!');
+    }
+  }, 1000); // Cập nhật mỗi giây
+}
+
+
 wss.on('connection', socket => {
   console.log("Web client đã kết nối!");
 
@@ -49,23 +86,26 @@ wss.on('connection', socket => {
   if (Delay !== null) socket.send(`Delay ${Delay}`);
   if (Humidity !== null) socket.send(`Humidity ${Humidity}`);
   if (Set_point !== null) socket.send(`Set_point ${Set_point}`);
+  // Gửi thời gian đếm ngược hiện tại nếu đang chạy
+  if (countdownInterval) {
+      socket.send(`Countdown ${formatTime(remainingTime)}`);
+  }
+
 
   socket.on('message', message => {
     const rawData = message.toString().trim();
-    const timestamp = new Date().toLocaleString('vi-VN'); // Định dạng thời gian Việt Nam
+    const timestamp = new Date().toLocaleString('vi-VN');
 
-    // Tách key và value từ message, ví dụ: "Mode 8" -> key="Mode", value="8"
     const parts = rawData.split(' ');
     const key = parts[0];
-    const value = parts.slice(1).join(' '); // Nối lại phần còn lại của giá trị
+    const value = parts.slice(1).join(' ');
 
     if (key && value) {
-      const parsedValue = parseFloat(value); // Dùng parseFloat để linh hoạt hơn
+      const parsedValue = parseFloat(value);
       if (!isNaN(parsedValue)) {
         let updated = false;
         let logMessage = '';
 
-        // Cập nhật giá trị dựa trên key
         switch (key) {
           case 'Mode':
             Mode = parsedValue;
@@ -79,8 +119,10 @@ wss.on('connection', socket => {
             break;
           case 'Delay':
             Delay = parsedValue;
-            logMessage = `[${timestamp}] Cập nhật Delay: ${Delay}`;
+            logMessage = `[${timestamp}] Cập nhật Delay: ${Delay} giây. Bắt đầu đếm ngược.`;
             updated = true;
+            // Khi Delay được cập nhật, bắt đầu bộ đếm ngược
+            startCountdown();
             break;
           case 'Humidity':
             Humidity = parsedValue;
@@ -97,10 +139,12 @@ wss.on('connection', socket => {
             break;
         }
 
-        // Nếu có cập nhật, ghi log và gửi cho tất cả client
         if (updated) {
           console.log(logMessage);
-          broadcast(`${key} ${value}`); // Gửi lại đúng định dạng đã nhận
+          // Không gửi lại giá trị Delay ngay lập tức, vì bộ đếm ngược sẽ xử lý
+          if (key !== 'Delay') {
+              broadcast(`${key} ${value}`);
+          }
         }
       } else {
         console.log(`[${timestamp}] Giá trị không phải là số cho key ${key}: ${value}`);
