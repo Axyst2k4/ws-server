@@ -2,16 +2,24 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <title>Giám sát Độ Ẩm - Nông Nghiệp Thông Minh</title>
+  <title>Giám sát Độ Ẩm - NÔNG NGHIỆP THÔNG MINH</title>
   <style>
     body {
       margin: 0;
       font-family: 'Segoe UI', sans-serif;
       background: #e6f2e6;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100vh;
+    }
+    .title {
+      font-size: 2.5em;
+      color: #4caf50;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+      text-align: center;
     }
     .center-box {
       text-align: center;
@@ -20,11 +28,6 @@
       border-radius: 12px;
       box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
       width: 300px;
-    }
-    h1 {
-      font-size: 1.8em;
-      color: #4caf50;
-      margin-bottom: 20px;
     }
     .data {
       font-size: 1.5em;
@@ -50,8 +53,8 @@
   </style>
 </head>
 <body>
+  <div class="title">NÔNG NGHIỆP THÔNG MINH</div>
   <div class="center-box">
-    <h1>🌱 Nông Nghiệp Thông Minh</h1>
     <div class="data" id="mode">Mode: Đang chờ dữ liệu...</div>
     <div id="mode0" class="hidden">
       <div class="data" id="setpoint">Setpoint: Đang chờ dữ liệu...</div>
