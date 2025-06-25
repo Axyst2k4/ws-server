@@ -3,7 +3,7 @@ const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 
-// Khởi tạo các biến để lưu trữ giá trị từ client
+// Khởi tạo các biến để lưu trữ giá trị
 let Mode = null;
 let Set_time = null;
 let Delay = null; // Thời gian delay ban đầu tính bằng giây
@@ -11,10 +11,10 @@ let Humidity = null;
 let Set_point = null;
 
 // Biến cho bộ đếm ngược
-let countdownInterval = null; // Sẽ giữ ID của setInterval
-let remainingTime = 0; // Thời gian còn lại tính bằng giây
+let countdownInterval = null;
+let remainingTime = 0;
 
-// Tạo HTTP server phục vụ file HTML
+// Tạo HTTP server
 const server = http.createServer((req, res) => {
   if (req.url === '/' || req.url === '/index.html') {
     const filePath = path.join(__dirname, 'index.html');
@@ -35,7 +35,6 @@ const server = http.createServer((req, res) => {
 // Tạo WebSocket server
 const wss = new WebSocket.Server({ server });
 
-// Hàm gửi dữ liệu đến tất cả client đang kết nối
 function broadcast(message) {
   wss.clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
@@ -44,7 +43,6 @@ function broadcast(message) {
   });
 }
 
-// Hàm định dạng thời gian từ giây thành chuỗi HH:MM:SS
 function formatTime(seconds) {
   const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
   const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
@@ -52,45 +50,54 @@ function formatTime(seconds) {
   return `${h}:${m}:${s}`;
 }
 
+// Hàm dừng bộ đếm ngược
+function stopCountdown() {
+    if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+        remainingTime = 0;
+        broadcast(`Countdown 00:00:00`); // Reset trên client
+        console.log('Bộ đếm ngược đã dừng.');
+    }
+}
+
 // Hàm bắt đầu bộ đếm ngược
 function startCountdown() {
-  // Dừng bộ đếm ngược cũ nếu đang chạy
-  if (countdownInterval) {
-    clearInterval(countdownInterval);
-  }
+  stopCountdown(); // Luôn dừng bộ đếm cũ trước khi bắt đầu cái mới
 
-  remainingTime = Delay; // Lấy thời gian từ biến Delay
+  if (Delay === null || Delay <= 0) {
+      console.log('Không có giá trị Delay để bắt đầu đếm ngược.');
+      return;
+  }
+  
+  remainingTime = Delay;
+  console.log(`Bắt đầu đếm ngược từ ${Delay} giây.`);
+  broadcast(`Countdown ${formatTime(remainingTime)}`);
 
   countdownInterval = setInterval(() => {
     if (remainingTime > 0) {
       remainingTime--;
-      // Gửi thời gian còn lại đến tất cả client
       broadcast(`Countdown ${formatTime(remainingTime)}`);
     } else {
-      // Dừng bộ đếm ngược khi hết giờ
-      clearInterval(countdownInterval);
-      countdownInterval = null;
-      broadcast('Countdown 00:00:00'); // Thông báo hết giờ
       console.log('Đã đếm ngược xong!');
+      stopCountdown();
     }
-  }, 1000); // Cập nhật mỗi giây
+  }, 1000);
 }
 
 
 wss.on('connection', socket => {
   console.log("Web client đã kết nối!");
 
-  // Gửi tất cả dữ liệu hiện tại đến client mới khi kết nối
+  // Gửi dữ liệu hiện tại khi kết nối
   if (Mode !== null) socket.send(`Mode ${Mode}`);
   if (Set_time !== null) socket.send(`Set_time ${Set_time}`);
   if (Delay !== null) socket.send(`Delay ${Delay}`);
-  if (Humidity !== null) socket.send(`Humidity ${Humidity}`);
+  if (Humidity !== null) socket.send(`Humidity ${Humidity}`); // Đã đổi tên key cho nhất quán
   if (Set_point !== null) socket.send(`Set_point ${Set_point}`);
-  // Gửi thời gian đếm ngược hiện tại nếu đang chạy
   if (countdownInterval) {
       socket.send(`Countdown ${formatTime(remainingTime)}`);
   }
-
 
   socket.on('message', message => {
     const rawData = message.toString().trim();
@@ -103,49 +110,48 @@ wss.on('connection', socket => {
     if (key && value) {
       const parsedValue = parseFloat(value);
       if (!isNaN(parsedValue)) {
-        let updated = false;
         let logMessage = '';
+        let broadcastMessage = `${key} ${value}`;
 
         switch (key) {
           case 'Mode':
             Mode = parsedValue;
             logMessage = `[${timestamp}] Cập nhật Mode: ${Mode}`;
-            updated = true;
+            // KIỂM TRA LOGIC ĐẾM NGƯỢC KHI THAY ĐỔI MODE
+            if (Mode % 2 !== 0) { // Nếu là Mode 1
+                startCountdown();
+            } else { // Nếu là Mode 0 hoặc các mode chẵn khác
+                stopCountdown();
+            }
             break;
           case 'Set_time':
             Set_time = parsedValue;
             logMessage = `[${timestamp}] Cập nhật Set_time: ${Set_time}`;
-            updated = true;
             break;
           case 'Delay':
             Delay = parsedValue;
-            logMessage = `[${timestamp}] Cập nhật Delay: ${Delay} giây. Bắt đầu đếm ngược.`;
-            updated = true;
-            // Khi Delay được cập nhật, bắt đầu bộ đếm ngược
-            startCountdown();
+            logMessage = `[${timestamp}] Cập nhật Delay: ${Delay} giây.`;
+            // NẾU ĐANG Ở MODE 1, KHỞI ĐỘNG LẠI ĐẾM NGƯỢC
+            if (Mode % 2 !== 0) {
+                startCountdown();
+            }
             break;
-          case 'Humidity':
+          case 'Humidity': // Sửa lại key cho nhất quán
             Humidity = parsedValue;
             logMessage = `[${timestamp}] Cập nhật Humidity: ${Humidity}`;
-            updated = true;
             break;
           case 'Set_point':
             Set_point = parsedValue;
             logMessage = `[${timestamp}] Cập nhật Set_point: ${Set_point}`;
-            updated = true;
             break;
           default:
             console.log(`[${timestamp}] Key không hợp lệ: ${key}`);
-            break;
+            return;
         }
 
-        if (updated) {
-          console.log(logMessage);
-          // Không gửi lại giá trị Delay ngay lập tức, vì bộ đếm ngược sẽ xử lý
-          if (key !== 'Delay') {
-              broadcast(`${key} ${value}`);
-          }
-        }
+        console.log(logMessage);
+        broadcast(broadcastMessage);
+
       } else {
         console.log(`[${timestamp}] Giá trị không phải là số cho key ${key}: ${value}`);
       }
@@ -159,7 +165,6 @@ wss.on('connection', socket => {
   });
 });
 
-// Khởi động server
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server đang chạy trên cổng ${PORT}`);
