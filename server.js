@@ -4,15 +4,11 @@ const fs = require('fs');
 const path = require('path');
 
 // Khởi tạo các biến để lưu trữ giá trị
-let Mode = null;
-let Set_time = null;
-let Delay_hours = 0; // Thời gian delay ban đầu tính bằng giờ
-let Humidity = null;
-let Set_point = null;
-
-// Biến cho bộ đếm ngược
-let countdownInterval = null;
-let remainingTimeInSeconds = 0; // Tổng thời gian còn lại tính bằng giây
+let Mode = "Set Humidity"; // Mặc định là Set Humidity
+let Set_point = 50; // Mặc định 50%
+let Delay_hours = 1; // Mặc định 1 giờ
+let Watering_minutes = 10; // Mặc định 10 phút
+let Humidity = 45; // Mặc định 45%
 
 // Tạo HTTP server
 const server = http.createServer((req, res) => {
@@ -43,69 +39,15 @@ function broadcast(message) {
   });
 }
 
-/**
- * Định dạng thời gian từ tổng số giây sang HH:MM:SS.
- * @param {number} totalSeconds - Tổng số giây.
- * @returns {string} Thời gian đã định dạng.
- */
-function formatTime(totalSeconds) {
-  const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
-  const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
-  const s = (totalSeconds % 60).toString().padStart(2, '0');
-  return `${h}:${m}:${s}`;
-}
-
-// Hàm dừng bộ đếm ngược
-function stopCountdown() {
-  if (countdownInterval) {
-    clearInterval(countdownInterval);
-    countdownInterval = null;
-    remainingTimeInSeconds = 0;
-    broadcast(`Countdown 00:00:00`); // Reset trên client
-    console.log('Bộ đếm ngược đã dừng.');
-  }
-}
-
-// Hàm bắt đầu bộ đếm ngược
-function startCountdown() {
-  stopCountdown(); // Luôn dừng bộ đếm cũ trước khi bắt đầu cái mới
-
-  // Chuyển đổi Delay_hours sang tổng số giây
-  const totalDelayInSeconds = Delay_hours * 3600;
-
-  if (totalDelayInSeconds <= 0) {
-    console.log('Không có giá trị Delay_hours để bắt đầu đếm ngược hoặc giá trị không hợp lệ.');
-    return;
-  }
-  
-  remainingTimeInSeconds = totalDelayInSeconds;
-  console.log(`Bắt đầu đếm ngược từ ${formatTime(remainingTimeInSeconds)}.`);
-  broadcast(`Countdown ${formatTime(remainingTimeInSeconds)}`);
-
-  countdownInterval = setInterval(() => {
-    if (remainingTimeInSeconds > 0) {
-      remainingTimeInSeconds--;
-      broadcast(`Countdown ${formatTime(remainingTimeInSeconds)}`);
-    } else {
-      console.log('Đã đếm ngược xong!');
-      stopCountdown();
-    }
-  }, 1000);
-}
-
-
 wss.on('connection', socket => {
   console.log("Web client đã kết nối!");
 
   // Gửi dữ liệu hiện tại khi kết nối
-  if (Mode !== null) socket.send(`Mode ${Mode}`);
-  if (Set_time !== null) socket.send(`Set_time ${Set_time}`);
-  socket.send(`Delay ${Delay_hours}`); // Gửi Delay dưới dạng số giờ
-  if (Humidity !== null) socket.send(`Humidity ${Humidity}`);
-  if (Set_point !== null) socket.send(`Set_point ${Set_point}`);
-  if (countdownInterval) {
-    socket.send(`Countdown ${formatTime(remainingTimeInSeconds)}`);
-  }
+  socket.send(`Mode ${Mode}`);
+  socket.send(`Set_point ${Set_point}`);
+  socket.send(`Delay ${Delay_hours}`);
+  socket.send(`Watering ${Watering_minutes}`);
+  socket.send(`Humidity ${Humidity}`);
 
   socket.on('message', message => {
     const rawData = message.toString().trim();
@@ -116,53 +58,67 @@ wss.on('connection', socket => {
     const value = parts.slice(1).join(' ');
 
     if (key && value) {
-      const parsedValue = parseFloat(value);
-      if (!isNaN(parsedValue)) {
-        let logMessage = '';
-        let broadcastMessage = `${key} ${value}`;
+      let logMessage = '';
+      let broadcastMessage = `${key} ${value}`;
 
-        switch (key) {
-          case 'Mode':
-            Mode = parsedValue;
+      switch (key) {
+        case 'Mode':
+          if (value === 'Set Humidity' || value === 'Set Time') {
+            Mode = value;
             logMessage = `[${timestamp}] Cập nhật Mode: ${Mode}`;
-            // KIỂM TRA LOGIC ĐẾM NGƯỢC KHI THAY ĐỔI MODE
-            if (Mode % 2 !== 0) { // Nếu là Mode lẻ (ví dụ: Mode 1, 3, 5...)
-                startCountdown();
-            } else { // Nếu là Mode chẵn (ví dụ: Mode 0, 2, 4...)
-                stopCountdown();
-            }
-            break;
-          case 'Set_time':
-            Set_time = parsedValue;
-            logMessage = `[${timestamp}] Cập nhật Set_time: ${Set_time}`;
-            break;
-          case 'Delay': // Nhận giờ delay (chỉ một giá trị là số giờ)
-            Delay_hours = parsedValue;
-            logMessage = `[${timestamp}] Cập nhật Delay: ${Delay_hours} giờ.`;
-            // Nếu đang ở Mode lẻ, khởi động lại đếm ngược với giá trị Delay mới
-            if (Mode % 2 !== 0) {
-                startCountdown();
-            }
-            break;
-          case 'Humidity':
-            Humidity = parsedValue;
-            logMessage = `[${timestamp}] Cập nhật Humidity: ${Humidity}`;
-            break;
-          case 'Set_point':
-            Set_point = parsedValue;
-            logMessage = `[${timestamp}] Cập nhật Set_point: ${Set_point}`;
-            break;
-          default:
-            console.log(`[${timestamp}] Key không hợp lệ: ${key}`);
+            broadcastMessage = `Mode ${Mode}`;
+          } else {
+            console.log(`[${timestamp}] Giá trị Mode không hợp lệ: ${value}`);
             return;
-        }
-
-        console.log(logMessage);
-        broadcast(broadcastMessage);
-
-      } else {
-        console.log(`[${timestamp}] Giá trị không phải là số cho key ${key}: ${value}`);
+          }
+          break;
+        case 'Set_point':
+          const setPointValue = parseFloat(value);
+          if (!isNaN(setPointValue) && setPointValue >= 0 && setPointValue <= 100) {
+            Set_point = setPointValue;
+            logMessage = `[${timestamp}] Cập nhật Set_point: ${Set_point}%`;
+          } else {
+            console.log(`[${timestamp}] Giá trị Set_point không hợp lệ: ${value}`);
+            return;
+          }
+          break;
+        case 'Delay':
+          const delayValue = parseInt(value);
+          if (!isNaN(delayValue) && delayValue >= 0 && delayValue <= 24) {
+            Delay_hours = delayValue;
+            logMessage = `[${timestamp}] Cập nhật Delay: ${Delay_hours} giờ`;
+          } else {
+            console.log(`[${timestamp}] Giá trị Delay không hợp lệ: ${value}`);
+            return;
+          }
+          break;
+        case 'Watering':
+          const wateringValue = parseInt(value);
+          if (!isNaN(wateringValue) && wateringValue >= 0 && wateringValue <= 60) {
+            Watering_minutes = wateringValue;
+            logMessage = `[${timestamp}] Cập nhật Watering: ${Watering_minutes} phút`;
+          } else {
+            console.log(`[${timestamp}] Giá trị Watering không hợp lệ: ${value}`);
+            return;
+          }
+          break;
+        case 'Humidity':
+          const humidityValue = parseFloat(value);
+          if (!isNaN(humidityValue) && humidityValue >= 0 && humidityValue <= 100) {
+            Humidity = humidityValue;
+            logMessage = `[${timestamp}] Cập nhật Humidity: ${Humidity}%`;
+          } else {
+            console.log(`[${timestamp}] Giá trị Humidity không hợp lệ: ${value}`);
+            return;
+          }
+          break;
+        default:
+          console.log(`[${timestamp}] Key không hợp lệ: ${key}`);
+          return;
       }
+
+      console.log(logMessage);
+      broadcast(broadcastMessage);
     } else {
       console.log(`[${timestamp}] Thông điệp không đúng định dạng: ${rawData}`);
     }
