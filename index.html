@@ -75,7 +75,7 @@
     <div class="status-container p-4 rounded-lg max-w-lg w-full">
         <div class="flex items-center gap-2">
             <span class="hmi-label">Trạng thái:</span>
-            <span id="connectionStatus" class="hmi-value status-connected">Đã kết nối</span>
+            <span id="connectionStatus" class="hmi-value status-disconnected">Mất kết nối</span>
         </div>
     </div>
     <!-- Container chính cho các ô khác -->
@@ -98,6 +98,75 @@
     </div>
 
     <script>
+        let ws = null;
+
+        function connectWebSocket() {
+            ws = new WebSocket('ws://localhost:8080');
+
+            ws.onopen = () => {
+                console.log('Kết nối WebSocket thành công');
+                const statusElement = document.getElementById('connectionStatus');
+                statusElement.textContent = 'Đã kết nối';
+                statusElement.className = 'hmi-value status-connected';
+            };
+
+            ws.onmessage = (event) => {
+                const data = event.data;
+                const parts = data.split(' ');
+                const key = parts[0];
+                const value = parts.slice(1).join(' ');
+
+                switch (key) {
+                    case 'Mode':
+                        document.getElementById('mode').value = value;
+                        updateMainContainer();
+                        break;
+                    case 'Set_point':
+                        if (document.getElementById('setPoint')) {
+                            document.getElementById('setPoint').value = parseFloat(value);
+                        }
+                        break;
+                    case 'Delay':
+                        if (document.getElementById('delayTime')) {
+                            document.getElementById('delayTime').value = parseInt(value);
+                        }
+                        break;
+                    case 'Watering':
+                        if (document.getElementById('wateringTime')) {
+                            document.getElementById('wateringTime').value = parseInt(value);
+                        }
+                        break;
+                    case 'Humidity':
+                        if (document.getElementById('humidity')) {
+                            document.getElementById('humidity').textContent = `${parseFloat(value).toFixed(1)}%`;
+                        }
+                        break;
+                    case 'Connection':
+                        const statusElement = document.getElementById('connectionStatus');
+                        if (value === 'Connected') {
+                            statusElement.textContent = 'Đã kết nối';
+                            statusElement.className = 'hmi-value status-connected';
+                        } else {
+                            statusElement.textContent = 'Mất kết nối';
+                            statusElement.className = 'hmi-value status-disconnected';
+                        }
+                        break;
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('Mất kết nối WebSocket');
+                const statusElement = document.getElementById('connectionStatus');
+                statusElement.textContent = 'Mất kết nối';
+                statusElement.className = 'hmi-value status-disconnected';
+                setTimeout(connectWebSocket, 5000); // Thử kết nối lại sau 5 giây
+            };
+
+            ws.onerror = (error) => {
+                console.error('Lỗi WebSocket:', error);
+            };
+        }
+
         function updateMainContainer() {
             const mode = document.getElementById('mode').value;
             const mainContent = document.getElementById('mainContent');
@@ -136,6 +205,10 @@
             }
 
             mainContent.innerHTML = newContent;
+            // Gửi Mode mới tới server
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(`Mode ${mode}`);
+            }
         }
 
         function updateValues() {
@@ -145,36 +218,24 @@
             if (mode === 'Set Humidity') {
                 const setPoint = document.getElementById('setPoint')?.value || 'N/A';
                 message += `, Set Point = ${setPoint}%`;
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(`Set_point ${setPoint}`);
+                }
             } else if (mode === 'Set Time') {
                 const delayTime = document.getElementById('delayTime')?.value || 'N/A';
                 const wateringTime = document.getElementById('wateringTime')?.value || 'N/A';
                 message += `, Thời gian delay = ${delayTime} giờ, Thời gian tưới = ${wateringTime} phút`;
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(`Delay ${delayTime}`);
+                    ws.send(`Watering ${wateringTime}`);
+                }
             }
 
             alert(message);
         }
 
-        // Mô phỏng dữ liệu độ ẩm thay đổi tự động
-        setInterval(() => {
-            const humidityElement = document.getElementById('humidity');
-            if (humidityElement) {
-                const humidity = (Math.random() * (60 - 40) + 40).toFixed(1);
-                humidityElement.textContent = `${humidity}%`;
-            }
-        }, 5000);
-
-        // Mô phỏng trạng thái kết nối thay đổi ngẫu nhiên
-        setInterval(() => {
-            const statusElement = document.getElementById('connectionStatus');
-            const isConnected = Math.random() > 0.5;
-            if (isConnected) {
-                statusElement.textContent = 'Đã kết nối';
-                statusElement.className = 'hmi-value status-connected';
-            } else {
-                statusElement.textContent = 'Mất kết nối';
-                statusElement.className = 'hmi-value status-disconnected';
-            }
-        }, 7000);
+        // Khởi tạo kết nối WebSocket khi tải trang
+        connectWebSocket();
     </script>
 </body>
 </html>
