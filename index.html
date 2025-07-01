@@ -3,131 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HMI Công nghiệp</title>
+    <title>HMI Nông nghiệp</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            background-color: #1a1a1a;
-            color: #e0e0e0;
-            font-family: 'Arial', sans-serif;
-        }
-        .hmi-container, .mode-container, .status-container {
-            background: linear-gradient(145deg, #2d2d2d, #252525);
-            border: 2px solid #444;
-            box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.7), inset 2px 2px 5px rgba(255, 255, 255, 0.1);
-        }
-        .hmi-label {
-            font-size: 1.5rem;
-            font-weight: bold;
-            text-transform: uppercase;
-            color: #ffffff;
-            text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
-        }
-        .hmi-value, .hmi-input, .hmi-select {
-            background-color: #444;
-            color: #fff;
-            border: 1px solid #666;
-            padding: 8px;
-            border-radius: 5px;
-            font-size: 1.2rem;
-            text-align: center;
-        }
-        .hmi-input:focus, .hmi-select:focus {
-            outline: none;
-            border-color: #ffffff;
-            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
-        }
-        .hmi-button {
-            background-color: #00cc99;
-            color: #fff;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
+        /* GIỮ NGUYÊN TOÀN BỘ CSS CỦA BẠN */
+        body { background-color: #1a1a1a; color: #e0e0e0; font-family: 'Arial', sans-serif; }
+        .hmi-container, .mode-container, .status-container { background: linear-gradient(145deg, #2d2d2d, #252525); border: 2px solid #444; box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.7), inset 2px 2px 5px rgba(255, 255, 255, 0.1); }
+        .hmi-label { font-size: 1.5rem; font-weight: bold; text-transform: uppercase; color: #ffffff; text-shadow: 0 0 5px rgba(255, 255, 255, 0.5); }
+        .hmi-value, .hmi-input, .hmi-select { background-color: #444; color: #fff; border: 1px solid #666; padding: 8px; border-radius: 5px; font-size: 1.2rem; text-align: center; }
+        .hmi-input:focus, .hmi-select:focus { outline: none; border-color: #ffffff; box-shadow: 0 0 5px rgba(255, 255, 255, 0.5); }
+        .hmi-button { background-color: #00cc99; color: #fff; padding: 10px 20px; border: none; border-radius: 5px; font-size: 1.2rem; cursor: pointer; transition: background-color 0.3s; }
         .hmi-button:hover { background-color: #00b386; }
         .status-connected { color: #00ff00; font-weight: bold; }
         .status-disconnected { color: #ff0000; font-weight: bold; }
     </style>
 </head>
-
 <body class="flex flex-col items-center justify-center min-h-screen gap-6 p-4">
-    <div class="status-container p-4 rounded-lg max-w-lg w-full">
-        <div class="flex items-center justify-between">
-            <span class="hmi-label">Trạng thái:</span>
-            <span id="connectionStatus" class="hmi-value status-disconnected">Đang kết nối...</span>
-        </div>
-         <div class="flex items-center justify-between mt-2">
-            <span class="hmi-label">Đếm ngược:</span>
-            <span id="countdownTimer" class="hmi-value">00:00:00</span>
+    <div class="mode-container p-4 rounded-lg max-w-lg w-full">
+        <div class="flex items-center gap-2">
+            <span class="hmi-label">Mode:</span>
+            <select class="hmi-select" id="mode" onchange="updateMainContainer()">
+                <option value="Set Humidity">Set Humidity</option>
+                <option value="Set Time">Set Time</option>
+            </select>
         </div>
     </div>
-
+    <div class="status-container p-4 rounded-lg max-w-lg w-full">
+        <div class="flex items-center gap-2">
+            <span class="hmi-label">Trạng thái:</span>
+            <span id="connectionStatus" class="hmi-value status-disconnected">Mất kết nối</span>
+        </div>
+    </div>
     <div class="hmi-container p-8 rounded-lg max-w-lg w-full">
         <h1 class="text-3xl font-bold text-center mb-8 text-white">HMI Công nghiệp</h1>
-        <div class="grid grid-cols-1 gap-6">
-            
-            <div class="flex justify-between items-center">
-                <span class="hmi-label">Mode:</span>
-                <select class="hmi-select" id="modeSelector" onchange="sendMode()">
-                    <option value="0">Chế độ Độ ẩm (Humidity)</option>
-                    <option value="1">Chế độ Hẹn giờ (Timer)</option>
-                </select>
+        <div class="grid grid-cols-1 gap-4" id="mainContent">
             </div>
-            <hr class="border-gray-600">
-            <div class="flex justify-between items-center">
-                <span class="hmi-label">Humidity:</span>
-                <span class="hmi-value w-24" id="humidityValue">N/A</span>
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="hmi-label">Set Point:</span>
-                <input type="number" class="hmi-input w-24" id="setPointInput" value="50" min="0" max="100">
-            </div>
-            <div class="flex justify-between items-center">
-                <span class="hmi-label">Delay (giờ):</span>
-                <input type="number" class="hmi-input w-24" id="delayInput" value="0" min="0" max="24" step="1">
-            </div>
-
-            <div class="text-center mt-4">
-                <button class="hmi-button" onclick="updateSettings()">Cập nhật Cài đặt</button>
-            </div>
-        </div>
     </div>
 
     <script>
-        let socket;
+        let socket = null;
 
-        /**
-         * Thiết lập kết nối WebSocket
-         */
         function connectWebSocket() {
+            // <-- SỬA ĐỔI 1: Tự động lấy địa chỉ server -->
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const host = window.location.host;
             const wsUrl = `${protocol}//${host}`;
-
+            
             console.log(`Đang kết nối tới ${wsUrl}...`);
             socket = new WebSocket(wsUrl);
 
             socket.onopen = () => {
-                console.log('WebSocket đã kết nối!');
-                const statusEl = document.getElementById('connectionStatus');
-                statusEl.textContent = 'Đã kết nối';
-                statusEl.className = 'hmi-value status-connected';
+                console.log('Kết nối WebSocket thành công');
+                const statusElement = document.getElementById('connectionStatus');
+                statusElement.textContent = 'Đã kết nối';
+                statusElement.className = 'hmi-value status-connected';
             };
 
             socket.onmessage = (event) => {
-                console.log(`Nhận từ server: ${event.data}`);
-                handleSocketMessage(event.data);
+                const data = event.data;
+                console.log(`Nhận: ${data}`);
+                const parts = data.split(' ');
+                if (parts.length < 2) return;
+
+                const key = parts[0];
+                const value = parts.slice(1).join(' ');
+
+                switch (key) {
+                    case 'Mode':
+                        // <-- SỬA ĐỔI 2: Chuyển đổi Mode từ số (0,1) sang chữ -->
+                        const modeText = value === '0' ? 'Set Humidity' : (value === '1' ? 'Set Time' : document.getElementById('mode').value);
+                        if (document.getElementById('mode').value !== modeText) {
+                            document.getElementById('mode').value = modeText;
+                            updateMainContainer(); // Cập nhật giao diện nếu mode thay đổi
+                        }
+                        break;
+                    case 'Set_point':
+                        if (document.getElementById('setPoint')) {
+                            document.getElementById('setPoint').value = parseFloat(value);
+                        }
+                        break;
+                    case 'Delay':
+                        if (document.getElementById('delayTime')) {
+                            document.getElementById('delayTime').value = parseInt(value);
+                        }
+                        break;
+                    case 'Humidity':
+                        if (document.getElementById('humidity')) {
+                            document.getElementById('humidity').textContent = `${parseFloat(value).toFixed(1)}%`;
+                        }
+                        break;
+                    case 'Countdown':
+                        // <-- SỬA ĐỔI 3: Thêm xử lý Countdown -->
+                        if (document.getElementById('countdownTimer')) {
+                            document.getElementById('countdownTimer').textContent = value;
+                        }
+                        break;
+                }
             };
 
             socket.onclose = () => {
-                console.log('WebSocket đã ngắt kết nối. Thử kết nối lại sau 3 giây...');
-                const statusEl = document.getElementById('connectionStatus');
-                statusEl.textContent = 'Đã ngắt kết nối';
-                statusEl.className = 'hmi-value status-disconnected';
-                setTimeout(connectWebSocket, 3000);
+                console.log('Mất kết nối WebSocket');
+                const statusElement = document.getElementById('connectionStatus');
+                statusElement.textContent = 'Mất kết nối';
+                statusElement.className = 'hmi-value status-disconnected';
+                setTimeout(connectWebSocket, 3000); // Thử kết nối lại sau 3 giây
             };
 
             socket.onerror = (error) => {
@@ -136,76 +115,70 @@
             };
         }
 
-        /**
-         * Phân tích và hiển thị dữ liệu từ server
-         */
-        function handleSocketMessage(data) {
-            const parts = data.split(' ');
-            if (parts.length < 2) return;
+        function updateMainContainer() {
+            const mode = document.getElementById('mode').value;
+            const mainContent = document.getElementById('mainContent');
+            let newContent = '';
 
-            const key = parts[0];
-            const value = parts[slice(1).join(' ');
+            if (mode === 'Set Humidity') {
+                newContent = `
+                    <div class="flex justify-between items-center">
+                        <span class="hmi-label">Humidity:</span>
+                        <span class="hmi-value w-24" id="humidity">N/A</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hmi-label">Set Point:</span>
+                        <input type="number" class="hmi-input w-24" id="setPoint" value="50" min="0" max="100">
+                    </div>
+                    <div class="text-center">
+                        <button class="hmi-button" onclick="updateValues()">Cập nhật</button>
+                    </div>`;
+            } else if (mode === 'Set Time') {
+                newContent = `
+                    <div class="flex justify-between items-center">
+                        <span class="hmi-label">Đếm ngược:</span>
+                        <span class="hmi-value w-32" id="countdownTimer">00:00:00</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hmi-label">Delay (giờ):</span>
+                        <input type="number" class="hmi-input w-24" id="delayTime" value="1" min="0" max="24" step="1">
+                    </div>
+                    <div class="text-center">
+                        <button class="hmi-button" onclick="updateValues()">Cập nhật</button>
+                    </div>`;
+            }
 
-            switch (key) {
-                case 'Humidity':
-                    document.getElementById('humidityValue').textContent = `${value}%`;
-                    break;
-                case 'Set_point':
-                    document.getElementById('setPointInput').value = value;
-                    break;
-                case 'Delay':
-                    document.getElementById('delayInput').value = value;
-                    break;
-                case 'Countdown':
-                    document.getElementById('countdownTimer').textContent = value;
-                    break;
-                case 'Mode':
-                    document.getElementById('modeSelector').value = value;
-                    break;
+            mainContent.innerHTML = newContent;
+            
+            // <-- SỬA ĐỔI 2: Gửi Mode đúng định dạng số (0 hoặc 1) -->
+            const modeValue = (mode === 'Set Humidity') ? 0 : 1;
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(`Mode ${modeValue}`);
             }
         }
-        
-        /**
-         * Gửi chế độ đã chọn đến server
-         */
-        function sendMode() {
-            const modeValue = document.getElementById('modeSelector').value;
-             if (socket && socket.readyState === WebSocket.OPEN) {
-                const message = `Mode ${modeValue}`;
-                console.log(`Gửi: ${message}`);
-                socket.send(message);
-            }
-        }
 
-        /**
-         * Gửi các giá trị cài đặt (Set_point, Delay) đến server
-         */
-        function updateSettings() {
+        function updateValues() {
             if (!socket || socket.readyState !== WebSocket.OPEN) {
                 alert('Chưa kết nối tới server!');
                 return;
             }
+            const mode = document.getElementById('mode').value;
 
-            const setPoint = document.getElementById('setPointInput').value;
-            const delay = document.getElementById('delayInput').value;
-
-            // Yêu cầu của bạn là: set humidity (tức là Set_point) kết nối với Mode 0
-            // và set delay (timer) kết nối với Mode 1.
-            // Server sẽ tự xử lý logic này. Client chỉ cần gửi các giá trị cài đặt.
-            const msgSetPoint = `Set_point ${setPoint}`;
-            const msgDelay = `Delay ${delay}`;
-
-            console.log(`Gửi: ${msgSetPoint}`);
-            socket.send(msgSetPoint);
-
-            console.log(`Gửi: ${msgDelay}`);
-            socket.send(msgDelay);
-            
-            alert('Đã gửi yêu cầu cập nhật cài đặt!');
+            if (mode === 'Set Humidity') {
+                const setPoint = document.getElementById('setPoint')?.value;
+                if(setPoint !== null) socket.send(`Set_point ${setPoint}`);
+            } else if (mode === 'Set Time') {
+                const delayTime = document.getElementById('delayTime')?.value;
+                if(delayTime !== null) socket.send(`Delay ${delayTime}`);
+            }
+            alert('Đã gửi yêu cầu cập nhật!');
         }
 
-        // Bắt đầu kết nối WebSocket khi trang được tải
-        document.addEventListener('DOMContentLoaded', connectWebSocket);
+        // Khởi tạo giao diện và kết nối WebSocket khi tải trang
+        document.addEventListener('DOMContentLoaded', () => {
+            updateMainContainer();
+            connectWebSocket();
+        });
     </script>
 </body>
 </html>
