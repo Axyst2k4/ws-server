@@ -1,23 +1,36 @@
-// --- PHẦN 1: KHỞI TẠO VÀ CÀI ĐẶT ---
 const http = require('http');
 const WebSocket = require('ws');
+const fs = require('fs'); // <--- THÊM THƯ VIỆN File System
+const path = require('path'); // <--- THÊM THƯ VIỆN Path
 
-// Khởi tạo các biến để lưu trữ giá trị
+// ... (giữ nguyên các biến của bạn) ...
 let Mode = null;
 let Set_time = null;
-let Delay_hours = 0; // Thời gian delay ban đầu tính bằng giờ
-let Humidity = null;
-let Set_point = null;
+// ... (vân vân)
 
-// Biến cho bộ đếm ngược
-let countdownInterval = null;
-let remainingTimeInSeconds = 0; // Tổng thời gian còn lại tính bằng giây
-
-// Tạo HTTP server
+// --- SỬA ĐỔI PHẦN TẠO HTTP SERVER ---
 const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('WebSocket Server is running.');
+    // Nếu người dùng truy cập trang chủ, gửi file index.html
+    if (req.url === '/') {
+        const filePath = path.join(__dirname, 'index.html');
+        fs.readFile(filePath, (err, content) => {
+            if (err) {
+                // Nếu không đọc được file, báo lỗi server
+                res.writeHead(500, { 'Content-Type': 'text/plain' });
+                res.end('Server Error: Could not read HTML file.');
+            } else {
+                // Nếu đọc file thành công, gửi nội dung file
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                res.end(content);
+            }
+        });
+    } else {
+        // Nếu truy cập các đường dẫn khác, báo không tìm thấy
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
+    }
 });
+
 
 // Tạo WebSocket server
 const wss = new WebSocket.Server({ server });
