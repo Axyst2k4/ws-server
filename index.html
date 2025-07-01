@@ -1,153 +1,179 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <title>Giám sát Độ Ẩm - NÔNG NGHIỆP THÔNG MINH</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', sans-serif;
-      background: #e6f2e6;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
-    .title {
-      font-size: 2.5em;
-      color: #4caf50;
-      text-transform: uppercase;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-    .center-box {
-      text-align: center;
-      background: white;
-      padding: 40px;
-      border-radius: 12px;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-      width: 350px; /* Tăng chiều rộng một chút */
-    }
-    .data {
-      font-size: 1.5em;
-      color: #28a745;
-      margin: 10px 0;
-    }
-    /* Thêm style riêng cho countdown */
-    #countdown {
-        color: #ff5722; /* Màu cam để nổi bật */
-        font-weight: bold;
-    }
-    .status {
-      font-size: 1.2em;
-      color: #555;
-    }
-    .status.connected {
-      color: green;
-    }
-    .status.disconnected {
-      color: red;
-    }
-    .status.error {
-      color: orange;
-    }
-    .hidden {
-      display: none;
-    }
-  </style>
-</head>
-<body>
-  <div class="title">NÔNG NGHIỆP THÔNG MINH</div>
-  <div class="center-box">
-    <div class="data" id="mode">Mode: Đang chờ dữ liệu...</div>
-    <div id="mode0" class="hidden">
-      <div class="data" id="setpoint">Setpoint: Đang chờ dữ liệu...</div>
-      <div class="data" id="humidity">Humidity: Đang chờ dữ liệu...</div>
-    </div>
-    <div id="mode1" class="hidden">
-      <div class="data" id="set_time">Set time: Đang chờ dữ liệu...</div>
-      <div class="data" id="delay">Delay: Đang chờ dữ liệu...</div>
-      <div class="data" id="countdown">Thời gian còn lại: 00:00:00</div>
-    </div>
-    <div class="status" id="status">Chưa kết nối tới máy chủ</div>
-  </div>
+const http = require('http');
+const WebSocket = require('ws');
+const fs = require('fs');
+const path = require('path');
 
-  <script>
-    const modeEl = document.getElementById('mode');
-    const mode0El = document.getElementById('mode0');
-    const mode1El = document.getElementById('mode1');
-    const setTimeEl = document.getElementById('set_time');
-    const delayEl = document.getElementById('delay');
-    const setpointEl = document.getElementById('setpoint');
-    const humidityEl = document.getElementById('humidity');
-    const statusEl = document.getElementById('status');
-    // LẤY PHẦN TỬ COUNTDOWN
-    const countdownEl = document.getElementById('countdown');
+// Khởi tạo các biến để lưu trữ giá trị
+let Mode = null;
+let Set_time = null;
+let Delay_hours = 0; // Thời gian delay ban đầu tính bằng giờ
+let Humidity = null;
+let Set_point = null;
 
-    const socket = new WebSocket("wss://" + location.host);
+// Biến cho bộ đếm ngược
+let countdownInterval = null;
+let remainingTimeInSeconds = 0; // Tổng thời gian còn lại tính bằng giây
 
-    socket.onopen = () => {
-      statusEl.textContent = "Đã kết nối tới máy chủ WebSocket";
-      statusEl.classList.remove('disconnected', 'error');
-      statusEl.classList.add('connected');
-    };
-
-    socket.onmessage = (event) => {
-      const raw = event.data.trim();
-      const parts = raw.split(" ");
-      const key = parts[0];
-      const value = parts.slice(1).join(" "); // Lấy toàn bộ phần còn lại làm value
-
-      switch (key) {
-        case "Mode":
-          const modeValue = parseInt(value);
-          if (!isNaN(modeValue)) {
-            const modeText = (modeValue % 2 === 0) ? "Mode 0" : "Mode 1";
-            modeEl.textContent = modeText;
-            if (modeValue % 2 === 0) {
-              mode0El.classList.remove('hidden');
-              mode1El.classList.add('hidden');
-            } else {
-              mode0El.classList.add('hidden');
-              mode1El.classList.remove('hidden');
-            }
-          }
-          break;
-        case "Set_time":
-          setTimeEl.textContent = `Set time: ${value} (Minutes)`;
-          break;
-        case "Delay":
-          // Hiển thị thời gian Delay bằng giây để nhất quán
-          delayEl.textContent = `Delay: ${value} (hours)`;
-          break;
-        case "Set_point":
-          setpointEl.textContent = `Setpoint: ${value}%`;
-          break;
-        case "Humidity": // SỬA LẠI KEY TỪ "Humidity_01" THÀNH "Humidity"
-          humidityEl.textContent = `Humidity: ${value}%`;
-          break;
-        case "Countdown": // XỬ LÝ DỮ LIỆU ĐẾM NGƯỢC
-          countdownEl.textContent = `Thời gian còn lại: ${value}`;
-          break;
-        default:
-          console.error(`Dữ liệu nhận không hợp lệ: ${raw}`);
-          break;
+// Tạo HTTP server
+const server = http.createServer((req, res) => {
+  if (req.url === '/' || req.url === '/index.html') {
+    const filePath = path.join(__dirname, 'index.html');
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        res.writeHead(500);
+        return res.end('Lỗi khi đọc file HTML');
       }
-    };
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(data);
+    });
+  } else {
+    res.writeHead(404);
+    res.end("Không tìm thấy!");
+  }
+});
 
-    socket.onclose = () => {
-      statusEl.textContent = "Mất kết nối WebSocket";
-      statusEl.classList.remove('connected', 'error');
-      statusEl.classList.add('disconnected');
-    };
+// Tạo WebSocket server
+const wss = new WebSocket.Server({ server });
 
-    socket.onerror = (error) => {
-      statusEl.textContent = "Lỗi WebSocket";
-      statusEl.classList.remove('connected', 'disconnected');
-      statusEl.classList.add('error');
-      console.error("WebSocket error:", error);
-    };
-  </script>
-</body>
-</html>
+function broadcast(message) {
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(message);
+    }
+  });
+}
+
+/**
+ * Định dạng thời gian từ tổng số giây sang HH:MM:SS.
+ * @param {number} totalSeconds - Tổng số giây.
+ * @returns {string} Thời gian đã định dạng.
+ */
+function formatTime(totalSeconds) {
+  const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+  const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+  const s = (totalSeconds % 60).toString().padStart(2, '0');
+  return `${h}:${m}:${s}`;
+}
+
+// Hàm dừng bộ đếm ngược
+function stopCountdown() {
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+    remainingTimeInSeconds = 0;
+    broadcast(`Countdown 00:00:00`); // Reset trên client
+    console.log('Bộ đếm ngược đã dừng.');
+  }
+}
+
+// Hàm bắt đầu bộ đếm ngược
+function startCountdown() {
+  stopCountdown(); // Luôn dừng bộ đếm cũ trước khi bắt đầu cái mới
+
+  // Chuyển đổi Delay_hours sang tổng số giây
+  const totalDelayInSeconds = Delay_hours * 3600;
+
+  if (totalDelayInSeconds <= 0) {
+    console.log('Không có giá trị Delay_hours để bắt đầu đếm ngược hoặc giá trị không hợp lệ.');
+    return;
+  }
+  
+  remainingTimeInSeconds = totalDelayInSeconds;
+  console.log(`Bắt đầu đếm ngược từ ${formatTime(remainingTimeInSeconds)}.`);
+  broadcast(`Countdown ${formatTime(remainingTimeInSeconds)}`);
+
+  countdownInterval = setInterval(() => {
+    if (remainingTimeInSeconds > 0) {
+      remainingTimeInSeconds--;
+      broadcast(`Countdown ${formatTime(remainingTimeInSeconds)}`);
+    } else {
+      console.log('Đã đếm ngược xong!');
+      stopCountdown();
+    }
+  }, 1000);
+}
+
+
+wss.on('connection', socket => {
+  console.log("Web client đã kết nối!");
+
+  // Gửi dữ liệu hiện tại khi kết nối
+  if (Mode !== null) socket.send(`Mode ${Mode}`);
+  if (Set_time !== null) socket.send(`Set_time ${Set_time}`);
+  socket.send(`Delay ${Delay_hours}`); // Gửi Delay dưới dạng số giờ
+  if (Humidity !== null) socket.send(`Humidity ${Humidity}`);
+  if (Set_point !== null) socket.send(`Set_point ${Set_point}`);
+  if (countdownInterval) {
+    socket.send(`Countdown ${formatTime(remainingTimeInSeconds)}`);
+  }
+
+  socket.on('message', message => {
+    const rawData = message.toString().trim();
+    const timestamp = new Date().toLocaleString('vi-VN');
+
+    const parts = rawData.split(' ');
+    const key = parts[0];
+    const value = parts.slice(1).join(' ');
+
+    if (key && value) {
+      const parsedValue = parseFloat(value);
+      if (!isNaN(parsedValue)) {
+        let logMessage = '';
+        let broadcastMessage = `${key} ${value}`;
+
+        switch (key) {
+          case 'Mode':
+            Mode = parsedValue;
+            logMessage = `[${timestamp}] Cập nhật Mode: ${Mode}`;
+            // KIỂM TRA LOGIC ĐẾM NGƯỢC KHI THAY ĐỔI MODE
+            if (Mode % 2 !== 0) { // Nếu là Mode lẻ (ví dụ: Mode 1, 3, 5...)
+                startCountdown();
+            } else { // Nếu là Mode chẵn (ví dụ: Mode 0, 2, 4...)
+                stopCountdown();
+            }
+            break;
+          case 'Set_time':
+            Set_time = parsedValue;
+            logMessage = `[${timestamp}] Cập nhật Set_time: ${Set_time}`;
+            break;
+          case 'Delay': // Nhận giờ delay (chỉ một giá trị là số giờ)
+            Delay_hours = parsedValue;
+            logMessage = `[${timestamp}] Cập nhật Delay: ${Delay_hours} giờ.`;
+            // Nếu đang ở Mode lẻ, khởi động lại đếm ngược với giá trị Delay mới
+            if (Mode % 2 !== 0) {
+                startCountdown();
+            }
+            break;
+          case 'Humidity':
+            Humidity = parsedValue;
+            logMessage = `[${timestamp}] Cập nhật Humidity: ${Humidity}`;
+            break;
+          case 'Set_point':
+            Set_point = parsedValue;
+            logMessage = `[${timestamp}] Cập nhật Set_point: ${Set_point}`;
+            break;
+          default:
+            console.log(`[${timestamp}] Key không hợp lệ: ${key}`);
+            return;
+        }
+
+        console.log(logMessage);
+        broadcast(broadcastMessage);
+
+      } else {
+        console.log(`[${timestamp}] Giá trị không phải là số cho key ${key}: ${value}`);
+      }
+    } else {
+      console.log(`[${timestamp}] Thông điệp không đúng định dạng: ${rawData}`);
+    }
+  });
+
+  socket.on('close', () => {
+    console.log("Web client ngắt kết nối.");
+  });
+});
+
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server đang chạy trên cổng ${PORT}`);
+});
