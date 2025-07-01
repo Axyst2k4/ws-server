@@ -13,7 +13,7 @@ let remainingTimeInSeconds = 0; // Tổng thời gian còn lại tính bằng gi
 
 // Tạo HTTP server
 const server = http.createServer((req, res) => {
-@@ -43,60 +43,68 @@
+
 });
 }
 
@@ -86,7 +86,7 @@ if (countdownInterval) {
 }
 
 socket.on('message', message => {
-@@ -118,54 +126,54 @@
+
 Mode = parsedValue;
 logMessage = `[${timestamp}] Cập nhật Mode: ${Mode}`;
 // KIỂM TRA LOGIC ĐẾM NGƯỢC KHI THAY ĐỔI MODE
