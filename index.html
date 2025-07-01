@@ -54,16 +54,6 @@
 </head>
 
 <body class="flex flex-col items-center justify-center min-h-screen gap-6 p-4">
-    <div class="mode-container p-4 rounded-lg max-w-lg w-full">
-        <div class="flex items-center justify-between">
-            <span class="hmi-label">Mode:</span>
-            <select class="hmi-select" id="modeSelector" onchange="sendMode()">
-                <option value="0">Chế độ chẵn (Tắt đếm ngược)</option>
-                <option value="1">Chế độ lẻ (Bật đếm ngược)</option>
-            </select>
-        </div>
-    </div>
-
     <div class="status-container p-4 rounded-lg max-w-lg w-full">
         <div class="flex items-center justify-between">
             <span class="hmi-label">Trạng thái:</span>
@@ -78,6 +68,15 @@
     <div class="hmi-container p-8 rounded-lg max-w-lg w-full">
         <h1 class="text-3xl font-bold text-center mb-8 text-white">HMI Công nghiệp</h1>
         <div class="grid grid-cols-1 gap-6">
+            
+            <div class="flex justify-between items-center">
+                <span class="hmi-label">Mode:</span>
+                <select class="hmi-select" id="modeSelector" onchange="sendMode()">
+                    <option value="0">Chế độ Độ ẩm (Humidity)</option>
+                    <option value="1">Chế độ Hẹn giờ (Timer)</option>
+                </select>
+            </div>
+            <hr class="border-gray-600">
             <div class="flex justify-between items-center">
                 <span class="hmi-label">Humidity:</span>
                 <span class="hmi-value w-24" id="humidityValue">N/A</span>
@@ -90,8 +89,9 @@
                 <span class="hmi-label">Delay (giờ):</span>
                 <input type="number" class="hmi-input w-24" id="delayInput" value="0" min="0" max="24" step="1">
             </div>
+
             <div class="text-center mt-4">
-                <button class="hmi-button" onclick="updateValues()">Cập nhật Cài đặt</button>
+                <button class="hmi-button" onclick="updateSettings()">Cập nhật Cài đặt</button>
             </div>
         </div>
     </div>
@@ -103,7 +103,6 @@
          * Thiết lập kết nối WebSocket
          */
         function connectWebSocket() {
-            // Tự động xác định địa chỉ server (ws:// cho http và wss:// cho https)
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const host = window.location.host;
             const wsUrl = `${protocol}//${host}`;
@@ -111,7 +110,6 @@
             console.log(`Đang kết nối tới ${wsUrl}...`);
             socket = new WebSocket(wsUrl);
 
-            // Xử lý khi kết nối thành công
             socket.onopen = () => {
                 console.log('WebSocket đã kết nối!');
                 const statusEl = document.getElementById('connectionStatus');
@@ -119,26 +117,22 @@
                 statusEl.className = 'hmi-value status-connected';
             };
 
-            // Xử lý khi nhận được tin nhắn từ server
             socket.onmessage = (event) => {
                 console.log(`Nhận từ server: ${event.data}`);
                 handleSocketMessage(event.data);
             };
 
-            // Xử lý khi kết nối bị đóng
             socket.onclose = () => {
                 console.log('WebSocket đã ngắt kết nối. Thử kết nối lại sau 3 giây...');
                 const statusEl = document.getElementById('connectionStatus');
                 statusEl.textContent = 'Đã ngắt kết nối';
                 statusEl.className = 'hmi-value status-disconnected';
-                // Tự động kết nối lại sau 3 giây
                 setTimeout(connectWebSocket, 3000);
             };
 
-            // Xử lý lỗi
             socket.onerror = (error) => {
                 console.error('Lỗi WebSocket:', error);
-                socket.close(); // Đóng kết nối khi có lỗi để kích hoạt onclose và reconnect
+                socket.close();
             };
         }
 
@@ -150,7 +144,7 @@
             if (parts.length < 2) return;
 
             const key = parts[0];
-            const value = parts.slice(1).join(' ');
+            const value = parts[slice(1).join(' ');
 
             switch (key) {
                 case 'Humidity':
@@ -167,9 +161,6 @@
                     break;
                 case 'Mode':
                     document.getElementById('modeSelector').value = value;
-                    break;
-                default:
-                    // Bỏ qua các key không xác định
                     break;
             }
         }
@@ -189,7 +180,7 @@
         /**
          * Gửi các giá trị cài đặt (Set_point, Delay) đến server
          */
-        function updateValues() {
+        function updateSettings() {
             if (!socket || socket.readyState !== WebSocket.OPEN) {
                 alert('Chưa kết nối tới server!');
                 return;
@@ -198,7 +189,9 @@
             const setPoint = document.getElementById('setPointInput').value;
             const delay = document.getElementById('delayInput').value;
 
-            // Gửi từng giá trị dưới dạng một tin nhắn riêng
+            // Yêu cầu của bạn là: set humidity (tức là Set_point) kết nối với Mode 0
+            // và set delay (timer) kết nối với Mode 1.
+            // Server sẽ tự xử lý logic này. Client chỉ cần gửi các giá trị cài đặt.
             const msgSetPoint = `Set_point ${setPoint}`;
             const msgDelay = `Delay ${delay}`;
 
@@ -208,7 +201,7 @@
             console.log(`Gửi: ${msgDelay}`);
             socket.send(msgDelay);
             
-            alert('Đã gửi yêu cầu cập nhật!');
+            alert('Đã gửi yêu cầu cập nhật cài đặt!');
         }
 
         // Bắt đầu kết nối WebSocket khi trang được tải
