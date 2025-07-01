@@ -108,7 +108,7 @@ function startCountdown() {
 wss.on('connection', socket => {
     console.log("Web client đã kết nối!");
 
-    // Gửi toàn bộ trạng thái hiện tại cho client mới kết nối để đảm bảo đồng bộ
+    // Gửi toàn bộ trạng thái hiện tại cho client mới
     socket.send(`Mode ${Mode}`);
     socket.send(`Set_time ${Set_time}`);
     socket.send(`Delay ${Delay_hours}`);
@@ -121,7 +121,10 @@ wss.on('connection', socket => {
         socket.send(`Countdown 00:00:00`);
     }
 
-    // Xử lý khi nhận được tin nhắn từ client
+    // --- CẤU TRÚC ĐÚNG ---
+    // Tất cả các .on() phải nằm ngang hàng nhau ở đây
+
+    // 1. Xử lý khi nhận được tin nhắn từ client
     socket.on('message', rawMessage => {
         const message = rawMessage.toString();
         const timestamp = new Date().toLocaleTimeString();
@@ -145,6 +148,7 @@ wss.on('connection', socket => {
         const broadcastMessage = `${key} ${value}`;
 
         switch (key) {
+            // ... (toàn bộ phần switch case của bạn giữ nguyên)
             case 'Mode':
                 Mode = parsedValue;
                 logMessage = `[${timestamp}] Cập nhật Mode: ${Mode}`;
@@ -154,31 +158,25 @@ wss.on('connection', socket => {
                     stopCountdown();
                 }
                 break;
-
             case 'Set_time':
                 Set_time = parsedValue;
                 logMessage = `[${timestamp}] Cập nhật Set_time: ${Set_time}`;
                 break;
-
             case 'Delay':
                 Delay_hours = parsedValue;
                 logMessage = `[${timestamp}] Cập nhật Delay: ${Delay_hours} giờ.`;
-                // Nếu đang ở Mode lẻ, khởi động lại đếm ngược với giá trị Delay mới
                 if (Mode % 2 !== 0) {
                     startCountdown();
                 }
                 break;
-
             case 'Humidity':
                 Humidity = parsedValue;
                 logMessage = `[${timestamp}] Cập nhật Humidity: ${Humidity}`;
                 break;
-
             case 'Set_point':
                 Set_point = parsedValue;
                 logMessage = `[${timestamp}] Cập nhật Set_point: ${Set_point}`;
                 break;
-
             default:
                 console.log(`[${timestamp}] Key không hợp lệ: ${key}`);
                 return;
@@ -188,7 +186,12 @@ wss.on('connection', socket => {
         broadcast(broadcastMessage);
     });
 
-    // Xử lý khi client ngắt kết nối
+    // 2. Xử lý khi có lỗi trên kết nối này
+    socket.on('error', (error) => {
+        console.error(`[WebSocket Error] Lỗi trên một kết nối: ${error.message}`);
+    });
+
+    // 3. Xử lý khi client ngắt kết nối
     socket.on('close', () => {
         console.log("Web client ngắt kết nối.");
     });
