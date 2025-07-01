@@ -1,179 +1,180 @@
-const http = require('http');
-const WebSocket = require('ws');
-const fs = require('fs');
-const path = require('path');
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HMI Công nghiệp</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            font-family: 'Arial', sans-serif;
+        }
+        .hmi-container, .mode-container, .status-container {
+            background: linear-gradient(145deg, #2d2d2d, #252525);
+            border: 2px solid #444;
+            box-shadow: 5px 5px 15px rgba(0, 0, 0, 0.7), inset 2px 2px 5px rgba(255, 255, 255, 0.1);
+        }
+        .hmi-label {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #ffffff;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        }
+        .hmi-value, .hmi-input, .hmi-select {
+            background-color: #444;
+            color: #fff;
+            border: 1px solid #666;
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+        .hmi-input:focus, .hmi-select:focus {
+            outline: none;
+            border-color: #ffffff;
+            box-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        }
+        .hmi-button {
+            background-color: #00cc99;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .hmi-button:hover {
+            background-color: #00b386;
+        }
+        .status-connected {
+            color: #00ff00;
+            font-weight: bold;
+        }
+        .status-disconnected {
+            color: #ff0000;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen gap-6">
+    <!-- Container cho Mode -->
+    <div class="mode-container p-4 rounded-lg max-w-lg w-full">
+        <div class="flex items-center gap-2">
+            <span class="hmi-label">Mode:</span>
+            <select class="hmi-select" id="mode" onchange="updateMainContainer()">
+                <option value="Set Humidity">Set Humidity</option>
+                <option value="Set Time">Set Time</option>
+            </select>
+        </div>
+    </div>
+    <!-- Container cho trạng thái kết nối -->
+    <div class="status-container p-4 rounded-lg max-w-lg w-full">
+        <div class="flex items-center gap-2">
+            <span class="hmi-label">Trạng thái:</span>
+            <span id="connectionStatus" class="hmi-value status-connected">Đã kết nối</span>
+        </div>
+    </div>
+    <!-- Container chính cho các ô khác -->
+    <div class="hmi-container p-8 rounded-lg max-w-lg w-full">
+        <h1 class="text-3xl font-bold text-center mb-8 text-white">HMI Công nghiệp</h1>
+        <div class="grid grid-cols-1 gap-4" id="mainContent">
+            <!-- Nội dung mặc định: Set Humidity -->
+            <div class="flex justify-between items-center">
+                <span class="hmi-label">Humidity:</span>
+                <span class="hmi-value w-24" id="humidity">45%</span>
+            </div>
+            <div class="flex justify-between items-center">
+                <span class="hmi-label">Set Point:</span>
+                <input type="number" class="hmi-input w-24" id="setPoint" value="50" min="0" max="100">
+            </div>
+            <div class="text-center">
+                <button class="hmi-button" onclick="updateValues()">Cập nhật</button>
+            </div>
+        </div>
+    </div>
 
-// Khởi tạo các biến để lưu trữ giá trị
-let Mode = null;
-let Set_time = null;
-let Delay_hours = 0; // Thời gian delay ban đầu tính bằng giờ
-let Humidity = null;
-let Set_point = null;
+    <script>
+        function updateMainContainer() {
+            const mode = document.getElementById('mode').value;
+            const mainContent = document.getElementById('mainContent');
+            let newContent = '';
 
-// Biến cho bộ đếm ngược
-let countdownInterval = null;
-let remainingTimeInSeconds = 0; // Tổng thời gian còn lại tính bằng giây
-
-// Tạo HTTP server
-const server = http.createServer((req, res) => {
-  if (req.url === '/' || req.url === '/index.html') {
-    const filePath = path.join(__dirname, 'index.html');
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(500);
-        return res.end('Lỗi khi đọc file HTML');
-      }
-      res.writeHead(200, { 'Content-Type': 'text/html' });
-      res.end(data);
-    });
-  } else {
-    res.writeHead(404);
-    res.end("Không tìm thấy!");
-  }
-});
-
-// Tạo WebSocket server
-const wss = new WebSocket.Server({ server });
-
-function broadcast(message) {
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
-}
-
-/**
- * Định dạng thời gian từ tổng số giây sang HH:MM:SS.
- * @param {number} totalSeconds - Tổng số giây.
- * @returns {string} Thời gian đã định dạng.
- */
-function formatTime(totalSeconds) {
-  const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
-  const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
-  const s = (totalSeconds % 60).toString().padStart(2, '0');
-  return `${h}:${m}:${s}`;
-}
-
-// Hàm dừng bộ đếm ngược
-function stopCountdown() {
-  if (countdownInterval) {
-    clearInterval(countdownInterval);
-    countdownInterval = null;
-    remainingTimeInSeconds = 0;
-    broadcast(`Countdown 00:00:00`); // Reset trên client
-    console.log('Bộ đếm ngược đã dừng.');
-  }
-}
-
-// Hàm bắt đầu bộ đếm ngược
-function startCountdown() {
-  stopCountdown(); // Luôn dừng bộ đếm cũ trước khi bắt đầu cái mới
-
-  // Chuyển đổi Delay_hours sang tổng số giây
-  const totalDelayInSeconds = Delay_hours * 3600;
-
-  if (totalDelayInSeconds <= 0) {
-    console.log('Không có giá trị Delay_hours để bắt đầu đếm ngược hoặc giá trị không hợp lệ.');
-    return;
-  }
-  
-  remainingTimeInSeconds = totalDelayInSeconds;
-  console.log(`Bắt đầu đếm ngược từ ${formatTime(remainingTimeInSeconds)}.`);
-  broadcast(`Countdown ${formatTime(remainingTimeInSeconds)}`);
-
-  countdownInterval = setInterval(() => {
-    if (remainingTimeInSeconds > 0) {
-      remainingTimeInSeconds--;
-      broadcast(`Countdown ${formatTime(remainingTimeInSeconds)}`);
-    } else {
-      console.log('Đã đếm ngược xong!');
-      stopCountdown();
-    }
-  }, 1000);
-}
-
-
-wss.on('connection', socket => {
-  console.log("Web client đã kết nối!");
-
-  // Gửi dữ liệu hiện tại khi kết nối
-  if (Mode !== null) socket.send(`Mode ${Mode}`);
-  if (Set_time !== null) socket.send(`Set_time ${Set_time}`);
-  socket.send(`Delay ${Delay_hours}`); // Gửi Delay dưới dạng số giờ
-  if (Humidity !== null) socket.send(`Humidity ${Humidity}`);
-  if (Set_point !== null) socket.send(`Set_point ${Set_point}`);
-  if (countdownInterval) {
-    socket.send(`Countdown ${formatTime(remainingTimeInSeconds)}`);
-  }
-
-  socket.on('message', message => {
-    const rawData = message.toString().trim();
-    const timestamp = new Date().toLocaleString('vi-VN');
-
-    const parts = rawData.split(' ');
-    const key = parts[0];
-    const value = parts.slice(1).join(' ');
-
-    if (key && value) {
-      const parsedValue = parseFloat(value);
-      if (!isNaN(parsedValue)) {
-        let logMessage = '';
-        let broadcastMessage = `${key} ${value}`;
-
-        switch (key) {
-          case 'Mode':
-            Mode = parsedValue;
-            logMessage = `[${timestamp}] Cập nhật Mode: ${Mode}`;
-            // KIỂM TRA LOGIC ĐẾM NGƯỢC KHI THAY ĐỔI MODE
-            if (Mode % 2 !== 0) { // Nếu là Mode lẻ (ví dụ: Mode 1, 3, 5...)
-                startCountdown();
-            } else { // Nếu là Mode chẵn (ví dụ: Mode 0, 2, 4...)
-                stopCountdown();
+            if (mode === 'Set Humidity') {
+                newContent = `
+                    <div class="flex justify-between items-center">
+                        <span class="hmi-label">Humidity:</span>
+                        <span class="hmi-value w-24" id="humidity">45%</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hmi-label">Set Point:</span>
+                        <input type="number" class="hmi-input w-24" id="setPoint" value="50" min="0" max="100">
+                    </div>
+                    <div class="text-center">
+                        <button class="hmi-button" onclick="updateValues()">Cập nhật</button>
+                    </div>
+                `;
+                mainContent.className = 'grid grid-cols-1 gap-4';
+            } else if (mode === 'Set Time') {
+                newContent = `
+                    <div class="flex justify-between items-center">
+                        <span class="hmi-label">Thời gian delay (giờ):</span>
+                        <input type="number" class="hmi-input w-24" id="delayTime" value="1" min="0" max="24" step="1">
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="hmi-label">Thời gian tưới (phút):</span>
+                        <input type="number" class="hmi-input w-24" id="wateringTime" value="10" min="0" max="60" step="1">
+                    </div>
+                    <div class="text-center">
+                        <button class="hmi-button" onclick="updateValues()">Cập nhật</button>
+                    </div>
+                `;
+                mainContent.className = 'grid grid-cols-1 gap-6';
             }
-            break;
-          case 'Set_time':
-            Set_time = parsedValue;
-            logMessage = `[${timestamp}] Cập nhật Set_time: ${Set_time}`;
-            break;
-          case 'Delay': // Nhận giờ delay (chỉ một giá trị là số giờ)
-            Delay_hours = parsedValue;
-            logMessage = `[${timestamp}] Cập nhật Delay: ${Delay_hours} giờ.`;
-            // Nếu đang ở Mode lẻ, khởi động lại đếm ngược với giá trị Delay mới
-            if (Mode % 2 !== 0) {
-                startCountdown();
-            }
-            break;
-          case 'Humidity':
-            Humidity = parsedValue;
-            logMessage = `[${timestamp}] Cập nhật Humidity: ${Humidity}`;
-            break;
-          case 'Set_point':
-            Set_point = parsedValue;
-            logMessage = `[${timestamp}] Cập nhật Set_point: ${Set_point}`;
-            break;
-          default:
-            console.log(`[${timestamp}] Key không hợp lệ: ${key}`);
-            return;
+
+            mainContent.innerHTML = newContent;
         }
 
-        console.log(logMessage);
-        broadcast(broadcastMessage);
+        function updateValues() {
+            const mode = document.getElementById('mode').value;
+            let message = `Đã cập nhật: Mode = ${mode}`;
 
-      } else {
-        console.log(`[${timestamp}] Giá trị không phải là số cho key ${key}: ${value}`);
-      }
-    } else {
-      console.log(`[${timestamp}] Thông điệp không đúng định dạng: ${rawData}`);
-    }
-  });
+            if (mode === 'Set Humidity') {
+                const setPoint = document.getElementById('setPoint')?.value || 'N/A';
+                message += `, Set Point = ${setPoint}%`;
+            } else if (mode === 'Set Time') {
+                const delayTime = document.getElementById('delayTime')?.value || 'N/A';
+                const wateringTime = document.getElementById('wateringTime')?.value || 'N/A';
+                message += `, Thời gian delay = ${delayTime} giờ, Thời gian tưới = ${wateringTime} phút`;
+            }
 
-  socket.on('close', () => {
-    console.log("Web client ngắt kết nối.");
-  });
-});
+            alert(message);
+        }
 
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server đang chạy trên cổng ${PORT}`);
-});
+        // Mô phỏng dữ liệu độ ẩm thay đổi tự động
+        setInterval(() => {
+            const humidityElement = document.getElementById('humidity');
+            if (humidityElement) {
+                const humidity = (Math.random() * (60 - 40) + 40).toFixed(1);
+                humidityElement.textContent = `${humidity}%`;
+            }
+        }, 5000);
+
+        // Mô phỏng trạng thái kết nối thay đổi ngẫu nhiên
+        setInterval(() => {
+            const statusElement = document.getElementById('connectionStatus');
+            const isConnected = Math.random() > 0.5;
+            if (isConnected) {
+                statusElement.textContent = 'Đã kết nối';
+                statusElement.className = 'hmi-value status-connected';
+            } else {
+                statusElement.textContent = 'Mất kết nối';
+                statusElement.className = 'hmi-value status-disconnected';
+            }
+        }, 7000);
+    </script>
+</body>
+</html>
