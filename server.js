@@ -3,11 +3,16 @@ const WebSocket = require('ws');
 const fs = require('fs'); // <--- THÊM THƯ VIỆN File System
 const path = require('path'); // <--- THÊM THƯ VIỆN Path
 
-// ... (giữ nguyên các biến của bạn) ...
+// Khởi tạo các biến để lưu trữ giá trị
 let Mode = null;
 let Set_time = null;
-// ... (vân vân)
+let Delay_hours = 0; // <-- Lỗi xảy ra vì dòng này hoặc cả khối này đang bị thiếu
+let Humidity = null;
+let Set_point = null;
 
+// Biến cho bộ đếm ngược
+let countdownInterval = null;
+let remainingTimeInSeconds = 0; 
 // --- SỬA ĐỔI PHẦN TẠO HTTP SERVER ---
 const server = http.createServer((req, res) => {
     // Nếu người dùng truy cập trang chủ, gửi file index.html
